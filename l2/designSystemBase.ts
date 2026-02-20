@@ -110,29 +110,54 @@ export async function preCompileLess(project: number, less: string, theme: strin
 
 }
 
-export async function preCompileLessAction(less: string, tokens: IDesignSystemTokens[], theme: string): Promise<string> {
+export async function preCompileLessAction(
+    lessSource: string,
+    tokens: IDesignSystemTokens[],
+    theme: string
+): Promise<string> {
 
     try {
-        less = removeTokensFromSource(less);
+
+        lessSource = removeTokensFromSource(lessSource);
+
         const tokenInfo = tokens.find((item) => item.themeName === theme);
         if (!tokenInfo) return '';
-        const allTokens = { ...tokenInfo.color, ...tokenInfo.typography, ...tokenInfo.global };
+
+        const allTokens = {
+            ...tokenInfo.color,
+            ...tokenInfo.typography,
+            ...tokenInfo.global
+        };
+
         const darkAndLight = getDarkAndLight(allTokens);
-        const newLess = convertLessTokensToCss(less, darkAndLight['root']);
+        const newLess = convertLessTokensToCss(lessSource, darkAndLight['root']);
         const tokensLess = await getTokensLessByTokensArray(tokens, theme);
-        let resultLess = '';
-        try {
-            const res = await (window as any).less.render(`${newLess}\n${tokensLess}`, { compress: false })
-            resultLess = res.css;
-        } catch (err) {
-            resultLess = '';
+
+        const finalSource = `${newLess}\n${tokensLess}`;
+
+        let lessEngine: any;
+
+        //  Browser
+        if (typeof window !== 'undefined' && (window as any).less) {
+            lessEngine = (window as any).less;
         }
-        return resultLess;
+        //  Node (CommonJS ou ESM)
+        else {
+            const url = 'less';
+            const lessModule = await import(url);
+            lessEngine = lessModule.default || lessModule;
+        }
+
+        const res = await lessEngine.render(finalSource, {
+            compress: false,
+            filename: 'input.less'
+        });
+
+        return res.css;
 
     } catch (err: any) {
         throw new Error(`Error on pre compile tokens Less: ${err.message}`);
     }
-
 }
 
 export async function preCompileLessByThemeOrDefault(project: number, less: string, theme: string): Promise<string> {
