@@ -264,6 +264,38 @@ export function removeTokensFromSource(src: string) {
     return src.replace(regex, '');
 }
 
+export async function removeTokensTheme(project: number, themeName: string): Promise<void> {
+    const actualTokens = await getTokens(project);
+    const themeIndex = actualTokens.findIndex((theme) => theme.themeName === themeName);
+    if (themeIndex === -1) return;
+    actualTokens.splice(themeIndex, 1);
+    await serializeTokens(project, actualTokens);
+}
+
+async function serializeTokens(project: number, tokens: IDesignSystemTokens[]) {
+    const content = tokens.map(t => JSON.stringify(t, null, 4)).join(",\n\n");
+    const key = mls.stor.getKeyToFiles(project, 2, 'designSystem', '', '.ts');
+    const storFile = mls.stor.files[key];
+    if (!storFile) return;
+
+    const libCommon = await import('/_102027_/l2/libCommom.js');
+    await libCommon.forceServiceInstance(2, '_100554_serviceSource');
+
+    const serviceSource = mls.services['100554_serviceSource_left'];
+    if (!serviceSource) throw new Error('Service source is not instancied');
+
+    const libModel = await import('/_102027_/l2/libModel.js');
+    const models = await libModel.createAllModels(storFile);
+    if (!models || !models.ts) throw new Error(`Invalid models for file: ${project}_designSystem`);
+    const newCode = replaceTokensBlock(models.ts.model.getValue(), `\n${content}\n`);
+    serviceSource.setValueInModeKeepingUndo(models.ts.model, newCode, true);
+}
+
+export function replaceTokensBlock(code: string, newContent: string): string {
+    const regex = /export\s+const\s+tokens\s*:\s*IDesignSystemTokens\[\]\s*=\s*\[[\s\S]*?\];?/g;
+    return code.replace(regex, `export const tokens: IDesignSystemTokens[] = [\n${newContent}\n]`);
+}
+
 export interface IDesignSystemTokens {
     description: string,
     themeName: string,

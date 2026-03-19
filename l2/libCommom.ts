@@ -208,7 +208,7 @@ function delay(ms: number) {
 
 export async function openService(service: string, position: 'left' | 'right', level: number, args?: Record<string, string>) {
 
-    const utils = await import('/_100554_/l2/utilsLit');
+    const utils = await import('/_102027_/l2/utils');
 
     let page = top?.document.querySelector('collab-page');
     if (!page) return;
@@ -271,8 +271,8 @@ export async function forceServiceInstance(level: number, service: string) {
 
 export async function loadFileHTMLInContainer(el: HTMLElement, shortName: string, project: number) {
 
-    const libCompile = await import('/_100554_/l2/libCompile.js');
-    const utils = await import('/_100554_/l2/utilsLit');
+    const libCompile = await import('/_102027_/l2/libCompile.js');
+    const utils = await import('/_102027_/l2/utils');
 
     const keyFile = mls.stor.getKeyToFiles(project, 2, shortName, '', '.html');
     const storFile = mls.stor.files[keyFile];
@@ -457,7 +457,7 @@ export async function loadModuleFromProjectOrDependency(name: string, folder: st
     const prj = mls.actualProject;
     if (!prj) throw new Error('Not found project actual!');
     let key = mls.stor.getKeyToFiles(prj, 2, name.trim(), folder.trim(), ext);
-    if (mls.stor.files[key]) return (await import('/_100554_/l2/collabImport.js')).collabImport({ project: prj, shortName: name, folder: folder });
+    if (mls.stor.files[key]) return (await import('/_102027_/l2/collabImport.js')).collabImport({ project: prj, shortName: name, folder: folder });
     const info = mls.l5.getProjectDetails(prj);
 
     if (!info && prj !== mls.stor.LOCALPROJECTNUMBER) throw new Error('Not found project details from actual project!');
@@ -472,7 +472,7 @@ export async function loadModuleFromProjectOrDependency(name: string, folder: st
     });
 
     if (!mls.stor.files[key]) throw new Error('File not found in any dependency!');
-    return await await (await import('/_100554_/l2/collabImport.js')).collabImport({ project: prjDep, shortName: name.trim(), folder: folder.trim() });
+    return await await (await import('/_102027_/l2/collabImport.js')).collabImport({ project: prjDep, shortName: name.trim(), folder: folder.trim() });
 }
 
 
@@ -572,7 +572,7 @@ export function setLastModule(project: number, moduleName: string) {
 
 export async function getBaseTemplate(file: IInfoFile, enhancement: string = '_blank'): Promise<string> {
 
-    const utils = await import('/_100554_/l2/utilsLit');
+    const utils = await import('/_102027_/l2/utils');
     const { project, shortName, folder, extension } = file;
 
     const folderString = folder ? `${folder}/` : '';
@@ -598,7 +598,7 @@ export function verifyNeedAddTripleslach(info: mls.stor.IFileInfoBase, src: stri
 
     if (!['.ts', '.defs.ts', '.test.ts', '.less'].includes(extension)) return src;
 
-    if (enhancement === '_blank' && extension === '.ts') enhancement = '_100554_enhancementLit';
+    if (enhancement === '_blank' && extension === '.ts') enhancement = '_102027_/l2/enhancementLit';
     if (enhancement === '_blank' && extension === '.less') enhancement = '_100554_enhancementStyle';
 
     const folder = info.folder ? `${info.folder}/` : '';
@@ -703,13 +703,13 @@ export async function clearServiceDetails() {
 }
 
 export async function getProjectConfig(project: number): Promise<IProjectConfig | undefined> {
-    const moduleProject = await (await import('/_100554_/l2/collabImport.js')).collabImport({ folder: '', project, shortName: 'project', extension: '.ts' });;
+    const moduleProject = await (await import('/_102027_/l2/collabImport.js')).collabImport({ folder: '', project, shortName: 'project', extension: '.ts' });;
     if (!moduleProject) return undefined;
     return moduleProject.projectConfig;
 }
 
 export async function getProjectModuleConfig(path: string, project: number): Promise<IProjectModuleConfig | undefined> {
-    const moduleConfig = await (await import('/_100554_/l2/collabImport.js')).collabImport({ folder: path, project, shortName: 'module', extension: '.ts' });
+    const moduleConfig = await (await import('/_102027_/l2/collabImport.js')).collabImport({ folder: path, project, shortName: 'module', extension: '.ts' });
     if (!moduleConfig) return undefined;
     return moduleConfig.moduleConfig;
 }
