@@ -66,25 +66,43 @@ export function replaceHistory(source: string, value: mls.defs.ChangeHistoryItem
   return replaceVar(source, 'history', historyToTs(value), 'export const history: mls.defs.ChangeHistoryItem[] =');
 }
 
+
 // ============================================================
 // SKILL  –  template literal, extrai conteúdo entre backticks
 // ============================================================
 
 export function getSkill(source: string): string {
-  const match = source.match(/export\s+const\s+skill\s*=\s*`([\s\S]*?)`/);
-  if (!match) throw new Error('Variable "skill" not found in source.');
-  return match[1];
+  const { content } = extractTemplateLiteral(source);
+  return content;
 }
 
-export function replaceSkill(source: string, value: string): string {
+export function updateSkill(source: string, value: string): string {
   const decl = 'export const skill =';
+  const newLiteral = '`' + value + '`';
   if (!/export\s+const\s+skill\s*=/.test(source)) {
-    return source.trimEnd() + '\n\n' + decl + ' `' + value + '`\n';
+    return source.trimEnd() + '\n\n' + decl + ' ' + newLiteral + '\n';
   }
-  return source.replace(
-    /export\s+const\s+skill\s*=\s*`[\s\S]*?`/,
-    decl + ' `' + value + '`'
-  );
+  const { start, end } = extractTemplateLiteral(source);
+  return source.slice(0, start) + newLiteral + source.slice(end);
+}
+
+function extractTemplateLiteral(source: string): { content: string; start: number; end: number } {
+  const match = /export\s+const\s+skill\s*=\s*`/.exec(source);
+  if (!match) throw new Error('Variable "skill" not found in source.');
+  const start = match.index + match[0].length - 1; // posição do backtick de abertura
+  let i = start + 1;
+  while (i < source.length) {
+    if (source[i] === '\\') { i += 2; continue; }  // escapes: \` ou qualquer outro
+    if (source[i] === '`') {
+      return {
+        content: source.slice(start + 1, i),
+        start,
+        end: i + 1,
+      };
+    }
+    i++;
+  }
+  throw new Error('Unterminated template literal for "skill".');
 }
 
 // ============================================================
