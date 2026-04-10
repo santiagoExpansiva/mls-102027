@@ -1,8 +1,8 @@
 /// <mls fileReference="_102027_/l2/libModel.ts" enhancement="_blank"/>
 
-import { getEnhancementName, getBaseTemplate } from '/_102027_/l2/libCommom.js';  
+import { getEnhancementName, getBaseTemplate } from '/_102027_/l2/libCommom.js';
 import { getTokensLess, removeTokensFromSource } from '/_102027_/l2/designSystemBase.js';
-import { getPath} from '/_102027_/l2/utils.js';
+import { getPath } from '/_102027_/l2/utils.js';
 import { getDefsByFile } from '/_102027_/l2/libMindMap.js';
 
 export async function readProjectTypescriptAndCompile(project: number, shortName: string, needCompile: boolean = true) {
@@ -197,6 +197,10 @@ export function setErrorOnModel(model: monaco.editor.ITextModel, line: number, s
     monaco.editor.setModelMarkers(model, 'markerSource', [markerOptions]);
 }
 
+export async function createModelAnyFile(storFile: mls.stor.IFileInfo) { 
+    return _createModelAnyFile(storFile);
+}
+
 //---------AUXILIARY FUNCTIONS AND DEFINITIONS-------------
 const modelPromises = new Map<string, Promise<mls.editor.IModelBase | undefined>>();
 
@@ -337,6 +341,42 @@ function onMonacoModelCreated(ev: mls.events.IEvent) {
     });
 }
 
+async function _createModelAnyFile(storFile: mls.stor.IFileInfo) {
+
+
+    if ((storFile as any).isCreateModelAny) return storFile.getOrCreateModel();
+    
+    const ref = mls.stor.convertFileToFileReference(storFile);
+    const uri = monaco.Uri.parse(`file://server/` + ref);
+    const src = await storFile.getContent() as string;
+    let model1 = monaco.editor.getModel(uri);
+    if (!model1) model1 = monaco.editor.createModel(src, storFile.extension.replace('.', ''), uri);
+    const m: mls.editor.IModelBase = {
+        model: model1,
+        storFile,
+        codeLens:{}
+    }
+
+    setModelEventAny(m, storFile)
+
+    storFile.getOrCreateModel = async () => { return m }
+    (storFile as any).isCreateModelAny = true;
+    return m;
+
+}
+
+function setModelEventAny(model: mls.editor.IModelBase, storFile: mls.stor.IFileInfo) {
+
+    if (!model) return;
+    // Register model events and hooks
+
+    if (model.originalCRC === undefined) setOriginalCrc(model);
+    storFile.onAction = (action: mls.stor.IFileInfoAction) => _afterUpdate(storFile, model.model, mapExt[storFile.extension]);
+    storFile.getValueInfo = () => _getValueInfo(model);
+    model.model.onDidChangeContent((e: monaco.editor.IModelContentChangedEvent) => _onModelChange(e, model, storFile));
+
+}
+
 async function _afterUpdate(storFile: mls.stor.IFileInfo, model: monaco.editor.ITextModel, tp: 'defs' | 'html' | 'style' | 'test' | 'ts') {
 
     if (storFile.status === 'deleted') {
@@ -387,7 +427,7 @@ async function _getValueInfo(activeModel: mls.editor.IModelBase): Promise<mls.st
         originalCRC: activeModel.originalCRC
     };
 
-    
+
     return rc;
 }
 
@@ -416,7 +456,7 @@ function _onModelChange(e: monaco.editor.IModelContentChangedEvent, activeModel:
             case ('.defs.ts'):
                 await _updateModelStatusDefs(activeModel, true);
                 break;
-            default: '';
+            default: await _updateModelStatusAny(activeModel, true);;
         }
 
     }, 400);
@@ -496,7 +536,7 @@ async function _updateModelStatusLess(modelBase: mls.editor.IModelStyle, changed
         if (fileModels.ts.compilerResults) {
             fileModels.ts.compilerResults.modelNeedCompile = true;
         }
-    
+
         const isOk = await mls.l2.typescript.compileAndPostProcess(fileModels.ts, true, true);
 
         fileModels.ts.storFile.hasError = !isOk;
@@ -539,6 +579,14 @@ async function _updateModelStatusDefs(modelBase: mls.editor.IModelStyle, changed
 
 }
 
+async function _updateModelStatusAny(modelBase: mls.editor.IModelStyle, changed: boolean): Promise<void> {
+
+    modelBase.storFile.hasError = false;
+    await _checkSameContent(modelBase, modelBase.storFile);
+
+
+}
+
 async function _updateModelStatusTS(modelBase: mls.editor.IModelBase, changed: boolean): Promise<void> {
 
     if (!modelBase.storFile) throw new Error('Invalid stor file');
@@ -554,10 +602,10 @@ async function _updateModelStatusTS(modelBase: mls.editor.IModelBase, changed: b
     let hasError = ok === false;
     if (!hasError) {
 
-        const enhacementName = await getEnhancementName({ project, shortName, folder, level: 2 }).catch((e:any) => undefined);
+        const enhacementName = await getEnhancementName({ project, shortName, folder, level: 2 }).catch((e: any) => undefined);
         if (enhacementName && enhacementName !== "_blank") {
             const path = getPath(enhacementName);
-            if(!path) throw new Error('[_updateModelStatusTS] Not found path:'+ enhacementName)
+            if (!path) throw new Error('[_updateModelStatusTS] Not found path:' + enhacementName)
             const enhancementInstance: mls.l2.enhancement.IEnhancementInstance | undefined = await mls.l2.enhancement.getEnhancementModule(path).catch((e) => { console.error('Error on getEnhancementModule: ' + e.message); return undefined });
             if (enhancementInstance) await enhancementInstance.onAfterChange(modelBase);
         }

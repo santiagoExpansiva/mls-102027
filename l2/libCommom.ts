@@ -566,11 +566,11 @@ export function setLastModule(project: number, moduleName: string) {
         localStorage.setItem(STORAGE_KEY_MODULES, JSON.stringify(info));
     } catch (e) {
         console.info(e);
-    }
+    } 
 }
 
 export async function getBaseTemplate(file: IInfoFile, enhancement: string = '_blank'): Promise<string> {
-
+ 
     const utils = await import('/_102027_/l2/utils');
     const { project, shortName, folder, extension } = file;
 
@@ -587,6 +587,8 @@ export async function getBaseTemplate(file: IInfoFile, enhancement: string = '_b
         case ('.test.ts'): return `/// <mls fileReference="${name}" enhancement="${enhancement}"/>\n\n import { ICANTest, ICANIntegration, ICANSchema  } from '/_100554_/l2/tsTestAST.js';\n export const integrations: ICANIntegration[] = [];\n export const tests: ICANTest[] = [];`;
 
         case ('.defs.ts'): return `/// <mls fileReference="${name}" enhancement="${enhancement}"/>\n\n`;
+
+        case ('.md'): return `/// <mls fileReference="${name}" enhancement="_blank"/>\n\n`;
 
         default: return '';
     }
