@@ -202,3 +202,73 @@ function deepMerge<T>(target: T, source: DeepPartial<T>): T {
   }
   return result;
 }
+
+// ============================================================
+// MATERIALIZE INDEX  –  estilo TS (single-quotes, keys sem aspas)
+// ============================================================
+
+export function getMaterializeIndex(source: string): mls.defs.MaterializeIndex {
+  const raw = extractBlock(source, 'materializeIndex', '[', ']');
+  return JSON.parse(normalizeTs(raw));
+}
+
+export function replaceMaterializeIndex(source: string, value: mls.defs.MaterializeIndex): string {
+  return replaceVar(
+    source,
+    'materializeIndex',
+    materializeIndexToTs(value),
+    'export const materializeIndex: mls.defs.MaterializeIndex =',
+  );
+}
+
+export function addMaterializeItem(source: string, item: mls.defs.MaterializeEntry): string {
+  const current = getMaterializeIndex(source);
+  if (current.find((i) => i.id === item.id)) {
+    throw new Error(`MaterializeItem with id "${item.id}" already exists.`);
+  }
+  current.push(item);
+  return replaceMaterializeIndex(source, current);
+}
+
+export function updateMaterializeItem(
+  source: string,
+  id: string,
+  patch: Partial<mls.defs.MaterializeEntry>,
+): string {
+  const current = getMaterializeIndex(source);
+  const idx = current.findIndex((i) => i.id === id);
+  if (idx === -1) throw new Error(`MaterializeItem with id "${id}" not found.`);
+  current[idx] = { ...current[idx], ...patch };
+  return replaceMaterializeIndex(source, current);
+}
+
+export function removeMaterializeItem(source: string, id: string): string {
+  const current = getMaterializeIndex(source);
+  const filtered = current.filter((i) => i.id !== id);
+  if (filtered.length === current.length) {
+    throw new Error(`MaterializeItem with id "${id}" not found.`);
+  }
+  return replaceMaterializeIndex(source, filtered);
+}
+
+// ============================================================
+// INTERNAL – serializa materializeIndex de volta em estilo TS
+// ============================================================
+
+function materializeIndexToTs(items: mls.defs.MaterializeIndex): string {
+  const lines = items.map((item) => {
+    const dependsOnTs = `[${item.dependsOn.map((d) => `'${d}'`).join(', ')}]`;
+    return [
+      '  {',
+      `    id: '${item.id}',`,
+      `    specVar: '${item.specVar}',`,
+      `    outputPath: '${item.outputPath}',`,
+      `    skillPath: '${item.skillPath}',`,
+      `    agent: '${item.agent}',`,
+      `    dependsOn: ${dependsOnTs},`,
+      `    specUpdatedAt: '${item.specUpdatedAt}',`,
+      '  }',
+    ].join('\n');
+  });
+  return `[\n${lines.join(',\n')}\n]`;
+}
