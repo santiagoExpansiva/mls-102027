@@ -275,6 +275,27 @@ export function getTotalCost(task: mls.msg.TaskData): string {
   return `${rounded.toFixed(2)}`;
 }
 
+export async function appendLongTermMemory(context: mls.msg.ExecutionContext, longTermMemory: Record<string, string>) {
+  if (!context.task) throw new Error('[appendLongTermMemory] invalid task');
+  const messageId: string | undefined = context.task.messageid_created;
+  if (!messageId) throw new Error("[appendLongTermMemory] Invalid messageId");
+
+  try {
+    const ret = await mls.api.msgAppendLongTermMemory({
+      longTermMemory,
+      messageId,
+      taskId: context.task.PK,
+      userId: context.message.senderId,
+    });
+
+    if (!ret || ret.statusCode !== 200) throw new Error("error on AI appendLongTermMemory , stoped");
+    return (ret as mls.msg.ResponseAppendLongTermMemory).task;
+  } catch (err: any) {
+    throw new Error('[appendLongTermMemory] ' + err.message);
+  }
+
+}
+
 
 export function getNextStepIdAvaliable(task: mls.msg.TaskData): number {
 

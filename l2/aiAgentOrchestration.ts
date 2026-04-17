@@ -657,7 +657,9 @@ export async function getInstanceByName(
         return foundInFolder;
     }
 
-    for (const projId of projectsToSearch) {
+    const baseProject = 100554;
+
+    for (const projId of [...projectsToSearch, baseProject]) {
         const file = searchInProject(projId);
         if (!file) continue;
 
