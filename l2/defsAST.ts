@@ -272,3 +272,108 @@ function materializeIndexToTs(items: mls.defs.MaterializeIndex): string {
   });
   return `[\n${lines.join(',\n')}\n]`;
 }
+
+// ============================================================
+// AnyTextVariable  –  template literal, extrai conteúdo entre backticks
+// ============================================================
+
+export function getVariableText(source: string, varName: string): string {
+  const { content } = extractTemplateLiteralByNameText(source, varName);
+  return content;
+}
+
+export function updateVariableText(source: string, varName: string, value: string): string {
+  const decl = `export const ${varName} =`;
+  const newLiteral = '`' + value + '`';
+  const pattern = new RegExp(`export\\s+const\\s+${escapeRegex(varName)}\\s*=`);
+  if (!pattern.test(source)) {
+    return source.trimEnd() + '\n\n' + decl + ' ' + newLiteral + '\n';
+  }
+  const { start, end } = extractTemplateLiteralByNameText(source, varName);
+  return source.slice(0, start) + newLiteral + source.slice(end);
+}
+
+function extractTemplateLiteralByNameText(
+  source: string,
+  varName: string
+): { content: string; start: number; end: number } {
+  const pattern = new RegExp(`export\\s+const\\s+${escapeRegex(varName)}\\s*=\\s*\``);
+  const match = pattern.exec(source);
+  if (!match) throw new Error(`Variable "${varName}" not found in source.`);
+  const start = match.index + match[0].length - 1;
+  let i = start + 1;
+  while (i < source.length) {
+    if (source[i] === '\\') { i += 2; continue; }
+    if (source[i] === '`') {
+      return {
+        content: source.slice(start + 1, i),
+        start,
+        end: i + 1,
+      };
+    }
+    i++;
+  }
+  throw new Error(`Unterminated template literal for "${varName}".`);
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ============================================================
+// AnyTextJSON  –  template literal, extrai conteúdo entre backticks
+// ============================================================
+
+
+export function getVariableJson<T = unknown>(source: string, varName: string): T {
+  const { content } = extractJsonByName(source, varName);
+  return JSON.parse(content) as T;
+}
+
+export function updateVariableJson(source: string, varName: string, value: unknown): string {
+  const decl = `export const ${varName} =`;
+  const newJson = JSON.stringify(value, null, 2);
+  const pattern = new RegExp(`export\\s+const\\s+${escapeRegex(varName)}\\s*=`);
+  if (!pattern.test(source)) {
+    return source.trimEnd() + '\n\n' + decl + ' ' + newJson + '\n';
+  }
+  const { start, end } = extractJsonByName(source, varName);
+  return source.slice(0, start) + newJson + source.slice(end);
+}
+
+function extractJsonByName(
+  source: string,
+  varName: string
+): { content: string; start: number; end: number } {
+  const pattern = new RegExp(`export\\s+const\\s+${escapeRegex(varName)}\\s*=\\s*([{\\[])`);
+  const match = pattern.exec(source);
+  if (!match) throw new Error(`Variable "${varName}" not found in source.`);
+
+  const start = match.index + match[0].length - 1; // posição do { ou [
+  const openChar = match[1];
+  const closeChar = openChar === '{' ? '}' : ']';
+
+  let depth = 0;
+  let inString = false;
+  let i = start;
+
+  while (i < source.length) {
+    const ch = source[i];
+    if (source[i - 1] !== '\\' && ch === '"') { inString = !inString; }
+    if (!inString) {
+      if (ch === openChar) depth++;
+      else if (ch === closeChar) {
+        depth--;
+        if (depth === 0) {
+          return {
+            content: source.slice(start, i + 1),
+            start,
+            end: i + 1,
+          };
+        }
+      }
+    }
+    i++;
+  }
+  throw new Error(`Unterminated JSON object/array for "${varName}".`);
+}
