@@ -217,7 +217,7 @@ export class MaterializeOrchestrator {
                 return JSON.stringify(result);
             }
 
-            return result as string;
+            return await this.processTemplate(result); 
 
         } catch (err) {
             console.error(`Erro em ${path}`, err);

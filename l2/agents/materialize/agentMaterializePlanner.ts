@@ -154,7 +154,7 @@ Return only valid JSON in the following structure:
 [[OutputSection1]]
 
 `
-
+ 
 //#region OutputSection1
 export type Output1 =
     {

@@ -3,7 +3,6 @@
 import { IAgentAsync, IAgentMeta } from '/_100554_/l2/aiAgentBase.js';
 import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js'; 
 
-
 export function createAgent(): IAgentAsync {  
   return {
     agentName: "agentMaterialize",

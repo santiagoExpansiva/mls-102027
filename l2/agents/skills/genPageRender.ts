@@ -16,10 +16,18 @@ You never call the backend. All logic lives in the Shared.
 
 ## Triple Slash (Mandatory — first line)
 
-Built from project + outputPath:
+Every file MUST start with the triple slash directive as its first line.
 
 \`\`\`ts
-/// <mls fileReference="_102027_/l2/petshop/web/desktop/updateProduct.ts" enhancement="_102027_/l2/enhancementLit" />
+/// <mls fileReference="_XXXXX_/l1/path/contract.ts" enhancement="_102027_/l2/enhancementLit" />
+\`\`\`
+
+Built from \`project\` + \`outputPath\`:
+
+Given \`{ "project": 102027, "outputPath": "/l2/storeLocation/component.ts" }\`:
+
+\`\`\`ts
+/// <mls fileReference="_102027_/l2/storeLocation/component.ts" enhancement="_blank" />
 \`\`\`
 
 ---

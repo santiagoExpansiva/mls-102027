@@ -3,7 +3,6 @@
 import { IAgentAsync, IAgentMeta } from '/_100554_/l2/aiAgentBase.js';
 import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js';  
 
-
 export function createAgent(): IAgentAsync { 
   return {
     agentName: "agentMaterializePageLit",
@@ -81,7 +80,7 @@ async function beforePromptStep(
   const orch = getMaterializeOrchestrator(info.path);
   const user = await orch.getVar(info.path, info.item.specVar);
   const skill = await orch.getSkill(info.item.skillPath);
-  const prompt = `##Skill\n${skill}\n\n##User data\n${user}\n\n##User info\n${JSON.stringify(info)}`;
+  const prompt = `##User info\n${JSON.stringify(info)}\n\n##Skill\n${skill}\n\n##User data\n${user}`;
 
 
   const continueParallel: mls.msg.AgentIntentPromptReady = {

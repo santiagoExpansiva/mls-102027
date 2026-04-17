@@ -3,6 +3,598 @@
 export const skill = `
 # SKILL: Shared Component
 
+You are responsible for creating the Shared file — a base Lit component extended by the WebComponent. You are the orchestration layer: you control all reactive states, properties, and backend communication.
+
+You receive two JSON inputs:
+- **pages JSON** → source of truth. Read, understand and reason about the page to generate the correct states, actions and lifecycle.
+- **contract file** → already generated. Use it to confirm interface names and function signatures. Do NOT look for enums in the contract — the action enum lives in the Shared file itself.
+
+You never render UI. You never register a custom element.
+
+---
+
+## Your reasoning process (follow this order before writing any code)
+
+### Step 1 — Understand the page purpose
+Read \`pages[*].purpose\` and each \`organism[*].purpose\`. Understand what the page does, what data it loads, and what the user can interact with.
+
+### Step 2 — Identify properties (@property)
+Properties are values that come from OUTSIDE the component:
+- \`dataShape.params\` whose \`source.from === "route"\` → \`@property()\`
+- \`dataShape.params\` whose \`source.from === "input"\` → \`@property()\`
+
+Everything else is internal state.
+
+### Step 3 — Identify states (@state)
+**Control states** — always generate:
+- \`action: ActionEnum | null = null\` (reset: true)
+- \`loading: boolean = false\`
+- \`error: string | null = null\`
+
+**Data states** — one per field referenced in \`dataShape.fields\` across all organisms:
+- Prefix derived from \`stateKey\` (e.g. \`db.storeInfo\` → prefix \`storeInfo_\`)
+- Each field → \`storeInfo_name\`, \`storeInfo_address\`, etc.
+
+**Computed states** — one per \`computedField\`:
+- Same prefix as the entity they derive from
+- Type: \`string\` by default; \`boolean\` if name starts with \`has\`, \`is\`, \`can\`, \`should\`
+
+**Temp states** — from \`pages[*].tempStates\` and \`organism[*].tempStates\`:
+- Name: suffix of \`stateKey\` (after last dot), camelCase
+
+### Step 4 — Design the action enum (declared IN this file, NOT in contract)
+
+The action enum is declared directly in the Shared file as a local \`const enum\` or regular \`enum\`. It is NOT imported from the contract.
+
+Create one action per \`sourceRoutine\` found across all organisms. Name each action by reading the routine name and inferring intent:
+
+| Routine pattern | Action name |
+|---|---|
+| \`*.get*\` / \`*.find*\` / \`*.fetch*\` | \`LOAD_<ENTITY>\` |
+| \`*.list*\` / \`*.search*\` | \`LOAD_<ENTITIES>\` (plural) |
+| \`*.create*\` / \`*.add*\` | \`CREATE_<ENTITY>\` |
+| \`*.update*\` / \`*.save*\` | \`SAVE_<ENTITY>\` |
+| \`*.delete*\` / \`*.remove*\` | \`DELETE_<ENTITY>\` |
+
+Add non-bff actions when the page logic requires them (navigation resets, UI interactions, etc.).
+Deduplicate: if two organisms share the same \`sourceRoutine\`, one action only.
+
+Declare the enum at the top of the file, before the class, exported:
+
+\`\`\`ts
+export enum StoreLocationAction {
+  LOAD_STORE_INFO = 'load_store_info',
+}
+\`\`\`
+
+Naming rule for the enum itself: \`PascalCase(pageName)\` + \`Action\`.
+
+### Step 5 — Design each action method
+
+**With bff (\`sourceRoutine\` exists):**
+- \`trigger\`: the action enum value
+- \`method\`: \`_\` + camelCase(actionName)
+- bff call uses the \`execBff\` response shape (see section below)
+- params built from \`dataShape.params\` mapped to \`this.propertyName\` or \`this.stateName\`
+
+**Without bff:**
+- \`bff: null\`
+- only state resets / assignments
+
+### Step 6 — Design computed field methods
+One private method per \`computedField\`. Called inside \`onSuccess\` after distributing result fields.
+
+### Step 7 — Design the lifecycle
+\`connectedCallback\`: dispatch all LOAD_* actions that should run on mount.
+
+### Step 8 — Design navigation methods
+One public method per \`navigationField\` with \`navigationType: "external"\`.
+
+### Step 9 — Design emit methods
+One public method per \`emits\` entry.
+
+---
+
+## Triple Slash (Mandatory — first line)
+
+Every file MUST start with the triple slash directive as its first line.
+
+\`\`\`ts
+/// <mls fileReference="_XXXXX_/l1/path/shared.ts" enhancement="_102027_/l2/enhancementLit" />
+\`\`\`
+
+Built from \`project\` + \`outputPath\`:
+
+Given \`{ "project": 102027, "outputPath": "/l1/storeLocation/shared.ts" }\`:
+
+\`\`\`ts
+/// <mls fileReference="_102027_/l1/storeLocation/shared.ts" enhancement="_102027_/l2/enhancementLit" />
+\`\`\`
+
+---
+
+## Imports
+
+\`\`\`ts
+import { CollabLitElement }      from '/_100554_/l2/collabLitElement.js';
+import { property, state }       from 'lit/decorators.js';
+import type { BffClientOptions } from '/_102029_/l2/bffClient.js';
+import { execBff }               from '/_102029_/l2/bffClient.js';
+\`\`\`
+
+Contract imports — interfaces, mocks and types only (NO enums — the action enum is declared here):
+Built from interfacePath
+
+\`\`\`ts
+import type {
+  StoreInfo,
+  GetStoreByIdParams,
+  AddressMapLoadedEvent,
+  ContactChannelClickedEvent,
+} from '{interfacePath}';
+import { Mock_StoreInfo } from '{interfacePath}';
+\`\`\`
+
+NEVER import an action enum from the contract. The enum is declared in this file.
+
+---
+
+## Action enum — declared in this file before the class
+
+\`\`\`ts
+export enum StoreLocationAction {
+  LOAD_STORE_INFO = 'load_store_info',
+}
+\`\`\`
+
+Export it so the WebComponent can import and use it for event wiring.
+
+---
+
+## execBff response shape — CRITICAL
+
+\`execBff\` does NOT throw on server errors. It always resolves and returns:
+
+\`\`\`ts
+{
+  data:  T | null,
+  error: {message:string} | null,
+  ok:    boolean,
+}
+\`\`\`
+
+Therefore the action method structure is:
+
+\`\`\`ts
+private async _loadStoreInfo() {
+  this.action  = null;    // ALWAYS first — prevents updated() loop
+  this.loading = true;
+  this.error   = null;
+
+  try {
+    /*
+    // Remove comment to execute
+    const result = await execBff<StoreInfo>(
+      'storeInfo.getStoreById',
+      { storeId: this.storeId } as GetStoreByIdParams,
+    );
+    if (result.error) {
+      this.error   = result.error;
+      this.loading = false;
+      return;
+    }
+    const res = result.data;
+    if (!res) {
+      this.loading = false;
+      return;
+    }
+    */
+
+    const res: StoreInfo = Mock_StoreInfo[0];   // ← single object mock
+
+    this.storeInfo_name          = res.name;
+    this.storeInfo_address       = res.address;
+    this.storeInfo_city          = res.city ?? '';
+    this.storeInfo_state         = res.state ?? '';
+    this.storeInfo_country       = res.country;
+    this.storeInfo_businessHours = res.businessHours;
+    this.storeInfo_mapLink       = res.mapLink ?? '';
+    this.storeInfo_phone         = res.phone ?? '';
+    this.storeInfo_whatsapp      = res.whatsapp ?? '';
+    this.storeInfo_email         = res.email ?? '';
+    this._computeFullAddress();
+    this.loading = false;
+    this.emitAddressMapLoaded();
+
+  } catch (e) {
+    this.loading = false;
+    this.error   = (e as Error).message;
+  }
+}
+\`\`\`
+
+Array result example
+\`\`\` ts
+private async _loadFlavors() {
+  this.action  = null;
+  this.loading = true;
+  this.error   = null;
+
+  try {
+    /*
+    // Remove comment to execute
+    const result = await execBff<PizzariaFlavor[]>(
+      'pizzaria.listFlavors',
+      { storeId: this.storeId } as ListFlavorsParams,
+    );
+    if (result.error) {
+      this.error   = result.error;
+      this.loading = false;
+      return;
+    }
+    const res = result.data;
+    if (!res) {
+      this.loading = false;
+      return;
+    }
+    */
+
+    const res: PizzariaFlavor[] = Mock_PizzariaFlavor;  // ← full array mock
+
+    this.flavors = res;
+    this.loading = false;
+
+  } catch (e) {
+    this.loading = false;
+    this.error   = (e as Error).message;
+  }
+}
+
+\`\`\`
+
+### execBff response rules
+
+**Always follow this exact order inside try:**
+1. \`this.action = null\` — first line, before the await
+2. Set \`loading = true\` and \`error = null\` — before the await
+3. \`await execBff(...)\` — the call
+4. \`if (result.error)\` → set \`this.error\`, set \`this.loading = false\`, \`return\`
+5. \`const res = result.data\` → guard with \`if (!res)\`
+6. When \`res\` is an **array** — guard with \`if (!res || !res.length)\` only when an empty array is meaningfully different from null; otherwise assign directly
+7. Distribute fields from \`res\` into individual states
+8. Call computed methods
+9. Set \`this.loading = false\`
+10. Call emit methods
+11. \`catch (e)\` → set \`loading = false\` and \`error = (e as Error).message\`
+
+The mock line that replaces res must:
+
+Use the exact same variable name res
+Have the correct type annotation matching bff result type
+Use Mock_EntityName[0] for single objects
+Use Mock_EntityName for arrays (no index)
+
+### Array result example
+
+When \`sourceRoutine\` returns a list (e.g. \`listCategories\`):
+
+\`\`\`ts
+const result = await execBff<PizzariaFlavor[]>(
+  'pizzaria.listFlavors',
+  { storeId: this.storeId } as PizzariaListFlavorsParams,
+);
+
+if (result.error) {
+  this.error   = result.error;
+  this.loading = false;
+  return;
+}
+
+const res = result.data;
+if (!res) {
+  this.loading = false;
+  return;
+}
+
+// Array assigned directly — no field distribution needed
+this.flavors = res;
+this.loading = false;
+\`\`\`
+
+---
+
+## Properties — @property()
+
+\`\`\`ts
+@property({ type: String })
+storeId: string = '';
+\`\`\`
+
+Type mapping: \`string → String\`, \`number → Number\`, \`boolean → Boolean\`. Non-primitives omit type.
+
+---
+
+## States — @state()
+
+CRITICAL: Never use an interface as a state type. Always expand to individual primitive fields.
+
+Optional fields from the result use \`?? ''\` or \`?? false\` to avoid \`undefined\` in states.
+
+Group with comment headers:
+
+\`\`\`ts
+// states — control
+@state() action:  StoreLocationAction | null = null;
+@state() loading: boolean = false;
+@state() error:   string | null = null;
+
+// states — StoreInfo
+@state() storeInfo_name:          string = '';
+@state() storeInfo_address:       string = '';
+@state() storeInfo_city:          string = '';
+@state() storeInfo_state:         string = '';
+@state() storeInfo_country:       string = '';
+@state() storeInfo_businessHours: string = '';
+@state() storeInfo_mapLink:       string = '';
+@state() storeInfo_phone:         string = '';
+@state() storeInfo_whatsapp:      string = '';
+@state() storeInfo_email:         string = '';
+@state() storeInfo_fullAddress:   string = '';  // computed
+
+// states — temp
+@state() selectedContactChannel: string | null = null;
+\`\`\`
+
+---
+
+## updated()
+
+\`\`\`ts
+updated(changed: Map<string, unknown>) {
+  if (changed.has('action')) {
+    if (this.action === StoreLocationAction.LOAD_STORE_INFO) this._loadStoreInfo();
+  }
+}
+\`\`\`
+
+---
+
+## Computed field methods
+
+\`\`\`ts
+private _computeFullAddress() {
+  this.storeInfo_fullAddress = [
+    this.storeInfo_address,
+    this.storeInfo_city,
+    this.storeInfo_state,
+    this.storeInfo_country,
+  ].filter(Boolean).join(', ');
+}
+\`\`\`
+
+---
+
+## Navigation methods
+
+\`\`\`ts
+public openMap() {
+  if (this.storeInfo_mapLink) window.open(this.storeInfo_mapLink, '_blank');
+}
+
+public contactWhatsapp() {
+  if (this.storeInfo_whatsapp) {
+    window.open(\`https://wa.me/\${this.storeInfo_whatsapp}\`, '_blank');
+  }
+}
+
+public contactPhone() {
+  if (this.storeInfo_phone) window.open(\`tel:\${this.storeInfo_phone}\`);
+}
+
+public contactEmail() {
+  if (this.storeInfo_email) window.open(\`mailto:\${this.storeInfo_email}\`);
+}
+\`\`\`
+
+Navigation target mapping:
+- \`external:mapLink\` → \`window.open(this.storeInfo_mapLink, '_blank')\`
+- \`external:whatsapp\` → \`window.open('https://wa.me/' + value, '_blank')\`
+- \`external:tel\` → \`window.open('tel:' + value)\`
+- \`external:mailto\` → \`window.open('mailto:' + value)\`
+
+Always guard with \`if (this.stateName)\` before opening.
+
+---
+
+## Emit methods
+
+\`\`\`ts
+public emitAddressMapLoaded() {
+  this.dispatchEvent(new CustomEvent('addressMapLoaded', {
+    detail: { storeId: this.storeId } as AddressMapLoadedEvent,
+    bubbles: true,
+    composed: true,
+  }));
+}
+
+public emitContactChannelClicked(channel: string) {
+  this.dispatchEvent(new CustomEvent('contactChannelClicked', {
+    detail: { channel, storeId: this.storeId } as ContactChannelClickedEvent,
+    bubbles: true,
+    composed: true,
+  }));
+}
+\`\`\`
+
+---
+
+## Full output structure
+
+\`\`\`ts
+/// <mls fileReference="_102027_/l2/storeLocation/shared.ts" enhancement="_102027_/l2/enhancementLit" />
+
+import { CollabLitElement }      from '/_100554_/l2/collabLitElement.js';
+import { property, state }       from 'lit/decorators.js';
+import type { BffClientOptions } from '/_102029_/l2/bffClient.js';
+import { execBff }               from '/_102029_/l2/bffClient.js';
+import { Mock_StoreInfo }        from '/_102027_/l1/storeLocation/contract.js';
+import type {
+  StoreInfo,
+  GetStoreByIdParams,
+  AddressMapLoadedEvent,
+  ContactChannelClickedEvent,
+} from '/_102027_/l1/storeLocation/contract.js';
+
+export enum StoreLocationAction {
+  LOAD_STORE_INFO = 'load_store_info',
+}
+
+export class StoreLocationShared extends CollabLitElement {
+
+  @property({ type: String }) storeId: string = '';
+
+  // states — control
+  @state() action:  StoreLocationAction | null = null;
+  @state() loading: boolean = false;
+  @state() error:   string | null = null;
+
+  // states — StoreInfo
+  @state() storeInfo_name:          string = '';
+  @state() storeInfo_address:       string = '';
+  @state() storeInfo_city:          string = '';
+  @state() storeInfo_state:         string = '';
+  @state() storeInfo_country:       string = '';
+  @state() storeInfo_businessHours: string = '';
+  @state() storeInfo_mapLink:       string = '';
+  @state() storeInfo_phone:         string = '';
+  @state() storeInfo_whatsapp:      string = '';
+  @state() storeInfo_email:         string = '';
+  @state() storeInfo_fullAddress:   string = '';  // computed
+
+  // states — temp
+  @state() selectedContactChannel: string | null = null;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.action = StoreLocationAction.LOAD_STORE_INFO;
+  }
+
+  updated(changed: Map<string, unknown>) {
+    if (changed.has('action')) {
+      if (this.action === StoreLocationAction.LOAD_STORE_INFO) this._loadStoreInfo();
+    }
+  }
+
+  private async _loadStoreInfo() {
+    this.action  = null;
+    this.loading = true;
+    this.error   = null;
+    try {
+      /*
+      // Remove comment to execute
+      const result = await execBff<StoreInfo>(
+        'storeInfo.getStoreById',
+        { storeId: this.storeId } as GetStoreByIdParams,
+      );
+      if (result.error) {
+        this.error   = result.error;
+        this.loading = false;
+        return;
+      }
+      const res = result.data;
+      if (!res) {
+        this.loading = false;
+        return;
+      }
+      */
+
+      const res: StoreInfo = Mock_StoreInfo[0];
+
+      this.storeInfo_name          = res.name;
+      this.storeInfo_address       = res.address;
+      this.storeInfo_city          = res.city ?? '';
+      this.storeInfo_state         = res.state ?? '';
+      this.storeInfo_country       = res.country;
+      this.storeInfo_businessHours = res.businessHours;
+      this.storeInfo_mapLink       = res.mapLink ?? '';
+      this.storeInfo_phone         = res.phone ?? '';
+      this.storeInfo_whatsapp      = res.whatsapp ?? '';
+      this.storeInfo_email         = res.email ?? '';
+      this._computeFullAddress();
+      this.loading = false;
+      this.emitAddressMapLoaded();
+    } catch (e) {
+      this.loading = false;
+      this.error   = (e as Error).message;
+    }
+  }
+
+  private _computeFullAddress() {
+    this.storeInfo_fullAddress = [
+      this.storeInfo_address,
+      this.storeInfo_city,
+      this.storeInfo_state,
+      this.storeInfo_country,
+    ].filter(Boolean).join(', ');
+  }
+
+  public openMap() {
+    if (this.storeInfo_mapLink) window.open(this.storeInfo_mapLink, '_blank');
+  }
+
+  public contactWhatsapp() {
+    if (this.storeInfo_whatsapp) {
+      window.open(\`https://wa.me/\${this.storeInfo_whatsapp}\`, '_blank');
+    }
+  }
+
+  public contactPhone() {
+    if (this.storeInfo_phone) window.open(\`tel:\${this.storeInfo_phone}\`);
+  }
+
+  public contactEmail() {
+    if (this.storeInfo_email) window.open(\`mailto:\${this.storeInfo_email}\`);
+  }
+
+  public emitAddressMapLoaded() {
+    this.dispatchEvent(new CustomEvent('addressMapLoaded', {
+      detail: { storeId: this.storeId } as AddressMapLoadedEvent,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  public emitContactChannelClicked(channel: string) {
+    this.dispatchEvent(new CustomEvent('contactChannelClicked', {
+      detail: { channel, storeId: this.storeId } as ContactChannelClickedEvent,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+}
+\`\`\`
+
+---
+
+## What you NEVER do
+
+- Implement \`render()\`
+- Register the component as a custom element
+- Declare interfaces — they always come from the contract
+- Import an action enum from the contract — declare it in this file
+- Use an interface type as a \`@state()\` type — always expand to individual fields
+- Access \`result\` directly as the data — always check \`result.error\` first, then use \`result.data\`
+- Skip the \`if (result.error)\` check after execBff
+- Skip the \`if (!res)\` guard after extracting \`result.data\`
+- Put \`this.action = null\` anywhere other than the first line of the method
+- Generate \`updated()\` if no actions are defined
+- Generate \`connectedCallback()\` if no actions dispatch on mount
+- Use \`import type\` for the action enum — it is a value declared in this file, not imported
+`;
+
+export const skillOld = `
+# SKILL: Shared Component
+
 You are responsible for creating the Shared file — a base Lit component
 extended by the WebComponent. You are the orchestration layer: you control
 all reactive states, properties, and backend communication.
@@ -385,4 +977,6 @@ Rules
 - Generate updated() if no actions are defined
 - Generate connectedCallback() if lifecycle is absent from the JSON
 - Add any logic not described in the JSON
+- Use Mock_EntityName[0] for array results — use the full array
+- Use Mock_EntityName (full array) for single object results — use [0]
 `;
