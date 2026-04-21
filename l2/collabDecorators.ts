@@ -21,6 +21,7 @@ export function propertyCompositeDataSource(options?: PropertyDeclaration) {
 
     Object.defineProperty(proto, propName, {
       get() {
+
         // Check if attribute contains template literals
         const attributeValue = getAttributeValueWithVariation.call(this, attributeName);
         if (attributeValue && attributeValue.includes('{{')) {
@@ -94,6 +95,7 @@ export function propertyDataSource(options?: PropertyDeclaration) {
     Object.defineProperty(proto, propName, {
       get() {
         // Retrieve the raw attribute value from the DOM.
+
         const attributeValue = this.hasAttribute(attributeName) ? this.getAttribute(attributeName) : '';
 
         // If the attribute uses template binding (e.g. {{ui.checked}}), resolve from state.
@@ -115,7 +117,7 @@ export function propertyDataSource(options?: PropertyDeclaration) {
             // Fallback: cast any other value to boolean.
             return Boolean(stateValue);
           }
-  
+
           let aux = stateValue ? stateValue.toString() : '';
           if (typeof stateValue === 'object') aux = JSON.stringify(stateValue);
           if (options?.type === String) return stateValue ? aux : stateValue;
@@ -130,12 +132,18 @@ export function propertyDataSource(options?: PropertyDeclaration) {
           // Here, if the attribute value is exactly "false" or the attribute is absent, it is considered false.
           // This makes <element checked="false"> behave as false, for developer convenience.
 
-          //if (attributeValue === '' || attributeValue === 'true') return true;
-          if ((this.hasAttribute(attributeName) && attributeValue !== 'false') || attributeValue === 'true') return true;
-          if (attributeValue === 'false' || attributeValue === undefined) return false;
+
+          if (!this.hasAttribute(attributeName)) {
+            return this[`_${attributeName}`] !== undefined
+              ? this[`_${attributeName}`]
+              : undefined; 
+          }
+
+          if (attributeValue === 'false') return false;
+          if (attributeValue === 'true' || attributeValue === '') return true;
           if (typeof attributeValue === 'boolean') return attributeValue;
-          // Fallback: cast to boolean.
           return Boolean(attributeValue);
+          
         }
 
         // Return internal property value if set (via JS).
@@ -146,7 +154,7 @@ export function propertyDataSource(options?: PropertyDeclaration) {
       },
       set(value: any) {
 
-        
+
 
         if (options?.type === Number && typeof value === 'number' && isNaN(value)) {
           // ignore , lit sent ex "{{users.name}}" after requestUpdate
@@ -215,7 +223,7 @@ export function propertyDataSource(options?: PropertyDeclaration) {
             const dynamicKey = attributeValue.replace(/[{{}}]/g, '').trim();
 
             this[`_${attributeName}`] = value;
-              setState(dynamicKey, value);
+            setState(dynamicKey, value);
 
           }
           else this[`_${attributeName}`] = value;
