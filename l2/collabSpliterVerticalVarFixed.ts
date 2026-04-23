@@ -1,8 +1,7 @@
 /// <mls fileReference="_102027_/l2/collabSpliterVerticalVarFixed.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
 
-import { html, css, LitElement } from 'lit';
+import { html, svg, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
-import { collab_chevron_down } from '/_100554_/l2/collabIcons.js'
 
 @customElement('collab-spliter-vertical-var-fixed-102027')
 export class CollabSpliterVerticalVarFixed extends LitElement {
@@ -21,6 +20,10 @@ export class CollabSpliterVerticalVarFixed extends LitElement {
 
 
     private resizeObserver?: ResizeObserver;
+
+    private collab_chevron_down = svg`
+    <svg width="12" height="12" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
+`;
 
     createRenderRoot() {
         return this;
@@ -185,7 +188,7 @@ export class CollabSpliterVerticalVarFixed extends LitElement {
       ${this.withresize === 'true' ?
                 html`<div class="spliter">
           <div @click=${this._onSpliterClick} class="spliter-button">
-            <i>${collab_chevron_down}</i>          
+            <i>${this.collab_chevron_down}</i>          
           </div>
         </div>
         ` : html``
@@ -196,7 +199,7 @@ export class CollabSpliterVerticalVarFixed extends LitElement {
     }
 
     private styles = `
-    collab-spliter-vertical-var-fixed-100554 {
+    collab-spliter-vertical-var-fixed-102027 {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -205,7 +208,7 @@ export class CollabSpliterVerticalVarFixed extends LitElement {
       max-height: var(--max-height);
       position: relative;
     }
-    collab-spliter-vertical-var-fixed-100554 > .spliter {
+    collab-spliter-vertical-var-fixed-102027 > .spliter {
       display: flex;
       justify-content: center;
       height: 20px;
@@ -213,7 +216,7 @@ export class CollabSpliterVerticalVarFixed extends LitElement {
       position: relative;
       z-index: 1;
     }
-    collab-spliter-vertical-var-fixed-100554 > .spliter .spliter-button {
+    collab-spliter-vertical-var-fixed-102027 > .spliter .spliter-button {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -227,33 +230,33 @@ export class CollabSpliterVerticalVarFixed extends LitElement {
       border-top-right-radius: 5px;
     }
 
-    collab-spliter-vertical-var-fixed-100554 > .spliter .spliter-button i {
+    collab-spliter-vertical-var-fixed-102027 > .spliter .spliter-button i {
       transition: transform 0.8s ease;
     }
 
-    collab-spliter-vertical-var-fixed-100554 > .spliter .spliter-button.closed i {
+    collab-spliter-vertical-var-fixed-102027 > .spliter .spliter-button.closed i {
       transform: rotate(180deg);
     }
 
-    collab-spliter-vertical-var-fixed-100554 > .spliter .spliter-button i {
+    collab-spliter-vertical-var-fixed-102027 > .spliter .spliter-button i {
       cursor: pointer;
     }
 
-    collab-spliter-vertical-var-fixed-100554 > .top-pane, .bottom-pane {
+    collab-spliter-vertical-var-fixed-102027 > .top-pane, .bottom-pane {
       overflow: auto;
     }
-    collab-spliter-vertical-var-fixed-100554 > .top-pane {
+    collab-spliter-vertical-var-fixed-102027 > .top-pane {
       overflow:hidden;
       background-color: var(--complement-color);
       flex-grow: 1;
     }
-    collab-spliter-vertical-var-fixed-100554 > .bottom-pane {
+    collab-spliter-vertical-var-fixed-102027 > .bottom-pane {
       overflow: hidden;
       background-color: var(--collab-nav-bg-2);
       max-height: var(--fixed-height);
       height: var(--bottom-pane-height, var(--fixed-height));
     }
-    collab-spliter-vertical-var-fixed-100554 > .bottom-pane.closed {
+    collab-spliter-vertical-var-fixed-102027 > .bottom-pane.closed {
       transition: height 0s;
       height: 0;
     }

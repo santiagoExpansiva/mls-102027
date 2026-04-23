@@ -1,11 +1,10 @@
 /// <mls fileReference="_102027_/l2/collabSpliterHorizontalVarFixed.ts" enhancement="_102027_/l2/enhancementLit.ts"/>
 
-import { html, css, LitElement } from 'lit';
+import { html, svg, LitElement } from 'lit';
 import { customElement, property, queryAll } from 'lit/decorators.js';
-import { collab_chevron_right } from '/_100554_/l2/collabIcons.js'
 
 @customElement('collab-spliter-horizontal-var-fixed-102027')
-export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
+export class CollabSpliterHorizontalVarFixed102027 extends LitElement {
 
     @property({ type: String }) fixedwidth = '0';
     @property({ type: String }) complementcolor = '#000';
@@ -18,6 +17,11 @@ export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
 
     @queryAll('[slot="left"]') slotLeft: HTMLElement[] | undefined;
     @queryAll('[slot="right"]') slotRight: HTMLElement[] | undefined;
+
+    private collab_chevron_right = svg`
+    <svg width="12" height="12" xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 512'><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d='M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z'/></svg>
+`;
+
 
 
     createRenderRoot() {
@@ -212,7 +216,7 @@ export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
       ${(this.fixedvisible === 'visible' || this.fixedvisible === 'closed') ?
                 html`<div class="spliter">
                   <div @click=${this._onSpliterClick} class="spliter-button ${!this.open ? "closed" : ""}">
-                      <i>${collab_chevron_right}</i>          
+                      <i>${this.collab_chevron_right}</i>          
                   </div>
               </div>
               `
@@ -224,7 +228,7 @@ export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
     }
 
     private styles = `
-    collab-spliter-horizontal-var-fixed-100554 {
+    collab-spliter-horizontal-var-fixed-102027 {
       display: flex;
       height: var(--max-height);
       width: var(--max-width);
@@ -233,7 +237,7 @@ export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
       position: relative;
       
     }
-    collab-spliter-horizontal-var-fixed-100554 > .spliter {
+    collab-spliter-horizontal-var-fixed-102027 > .spliter {
       display: flex;
       align-items: center;
       width: 20px;
@@ -242,7 +246,7 @@ export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
       z-index: 1;
       border-right: 1px solid #cecece;
     }
-    collab-spliter-horizontal-var-fixed-100554 > .spliter .spliter-button {
+    collab-spliter-horizontal-var-fixed-102027 > .spliter .spliter-button {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -257,33 +261,33 @@ export class CollabSpliterHorizontalVarFixed100554 extends LitElement {
       background-color: #f9f9f9;
     }
 
-    collab-spliter-horizontal-var-fixed-100554 > .spliter .spliter-button i {
+    collab-spliter-horizontal-var-fixed-102027 > .spliter .spliter-button i {
       transition: transform 0.8s ease;
     }
 
-    collab-spliter-horizontal-var-fixed-100554 > .spliter .spliter-button.closed i {
+    collab-spliter-horizontal-var-fixed-102027 > .spliter .spliter-button.closed i {
       transform: rotate(180deg);
     }
 
-    collab-spliter-horizontal-var-fixed-100554 > .spliter .spliter-button i {
+    collab-spliter-horizontal-var-fixed-102027 > .spliter .spliter-button i {
       cursor: pointer;
     }
 
-    collab-spliter-horizontal-var-fixed-100554 > .left-pane, .right-pane {
+    collab-spliter-horizontal-var-fixed-102027 > .left-pane, .right-pane {
       overflow: auto;
       overflow-x: hidden;
     }
-    collab-spliter-horizontal-var-fixed-100554 > .left-pane {
+    collab-spliter-horizontal-var-fixed-102027 > .left-pane {
       background-color: var(--complement-color);
       flex-grow: 1;
     }
-    collab-spliter-horizontal-var-fixed-100554 > .right-pane {
+    collab-spliter-horizontal-var-fixed-102027 > .right-pane {
       background-color: var(--collab-nav-bg-1);
       transition: width 0.8s;
       max-width: var(--fixed-width);
       width: var(--right-pane-width, var(--fixed-width));
     }
-    collab-spliter-horizontal-var-fixed-100554 > .right-pane.closed {
+    collab-spliter-horizontal-var-fixed-102027 > .right-pane.closed {
       display:none;
       transition: width 0s;
       width: 0;
