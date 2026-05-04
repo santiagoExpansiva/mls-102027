@@ -207,7 +207,7 @@ function delay(ms: number) {
 
 export async function openService(service: string, position: 'left' | 'right', level: number, args?: Record<string, string>) {
 
-    const utils = await import('/_102027_/l2/utils');
+    const utils = await import('/_102027_/l2/utils.js');
 
     let page = top?.document.querySelector('collab-page');
     if (!page) return;
@@ -271,7 +271,7 @@ export async function forceServiceInstance(level: number, service: string) {
 export async function loadFileHTMLInContainer(el: HTMLElement, shortName: string, project: number) {
 
     const libCompile = await import('/_102027_/l2/libCompile.js');
-    const utils = await import('/_102027_/l2/utils');
+    const utils = await import('/_102027_/l2/utils.js');
 
     const keyFile = mls.stor.getKeyToFiles(project, 2, shortName, '', '.html');
     const storFile = mls.stor.files[keyFile];
@@ -594,7 +594,7 @@ export function setLastModule(project: number, moduleName: string) {
 
 export async function getBaseTemplate(file: IInfoFile, enhancement: string = '_blank'): Promise<string> {
  
-    const utils = await import('/_102027_/l2/utils');
+    const utils = await import('/_102027_/l2/utils.js');
     const { project, shortName, folder, extension } = file;
 
     const folderString = folder ? `${folder}/` : '';
