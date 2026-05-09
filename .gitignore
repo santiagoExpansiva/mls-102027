@@ -6,7 +6,6 @@ build/
 *.log
 .idea/
 .vscode/
-obj/
 package-lock.json
 mls.d.ts
 monaco.d.ts
