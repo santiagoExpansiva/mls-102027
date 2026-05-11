@@ -1,7 +1,7 @@
 /// <mls fileReference="_102027_/l2/agents/materialize/agentMaterializePageLit.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
-import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js'; 
+import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js';  
 
 export function createAgent(): IAgentAsync {
   return {
@@ -125,6 +125,7 @@ async function afterPromptStep(
     taskId: context.task?.PK || '',
     parentStepId: parentStep.stepId,
     stepId: step.stepId,
+    cleaner: 'input_output',
     status
   };
 
@@ -135,7 +136,7 @@ async function afterPromptStep(
 async function processOutput(context: mls.msg.ExecutionContext, output: any, agent: IAgentMeta): Promise<mls.msg.AgentIntent[]> {
 
   const orch = getMaterializeOrchestrator(output.path);
-  await orch.createStorFile(output.outputPath, output.srcFile);
+  await orch.createStorFile(output.outputPath, parseAISource(output.srcFile));
 
   const group = await orch.processGroup(output.id);
   const newSteps: mls.msg.AgentIntentAddStep[] = [];
@@ -172,6 +173,18 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
   return newSteps;
 }
 
+function parseAISource(raw: string): string {
+    // Após JSON.parse, o \\n já virou \n corretamente
+    // Só precisa decodificar unicode escapes que o modelo insistir em usar
+    return decodeUnicodeEscapes(raw);
+}
+
+function decodeUnicodeEscapes(src: string): string {
+    return src.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
+        String.fromCharCode(parseInt(hex, 16))
+    );
+}
+
 const system1 = `
 <!-- modelType: codeflash-->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
@@ -180,7 +193,14 @@ You must return the result following the skill's steps. The return value should 
 
 
 ## Output format
-You must return the object strictly as JSON
+All code inside string values MUST have:
+- Newlines escaped as \\n
+- Double quotes escaped as \\"
+- Backslashes escaped as \\\\
+Never return raw multiline strings inside JSON values.
+
+You must return strictly valid JSON following exactly this structure:
+
 [[OutputSection]]
 
 `
@@ -189,14 +209,12 @@ You must return the object strictly as JSON
 export type Output =
   {
     type: "flexible";
-    result: OutputResult;
+    result: {
+      path: string; // same value by "User info";
+      id: string; // same value by "User info";
+      outputPath: string, // same value by "User info";
+      srcFile: string
+    }
   }
 
-export type OutputResult =
-  {
-    path: string; // same value by "User info";
-    id: string; // same value by "User info";
-    outputPath: string, // same value by "User info";
-    srcFile: string
-  }
 //#endregion 

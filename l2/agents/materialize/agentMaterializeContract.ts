@@ -1,9 +1,9 @@
 /// <mls fileReference="_102027_/l2/agents/materialize/agentMaterializeContract.ts" enhancement="_102027_/l2/enhancementAgent.ts"/>
 
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
-import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js';  
- 
-export function createAgent(): IAgentAsync { 
+import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js';
+
+export function createAgent(): IAgentAsync {
   return {
     agentName: "agentMaterializeContract",
     agentProject: 102027,
@@ -58,7 +58,7 @@ async function beforePromptStep(
   if (!args) throw new Error(`[beforePromptStep] args invalid`)
 
   if (args.startsWith("@@")) {
-  
+
     const continueParallel1: mls.msg.AgentIntentPromptReady = {
       type: "prompt_ready",
       args,
@@ -75,12 +75,13 @@ async function beforePromptStep(
   }
 
   console.info('--------agentMaterializeContract--------')
-  const info = JSON.parse(args) as { path: string, item: mls.defs.MaterializeEntry, project?:number };
+  const info = JSON.parse(args) as { path: string, item: mls.defs.MaterializeEntry, project?: number };
   info.project = mls.actualProject || 0;
   const orch = getMaterializeOrchestrator(info.path);
   const user = await orch.getVar(info.path, info.item.specVar);
   const skill = await orch.getSkill(info.item.skillPath);
   const prompt = `##Skill\n${skill}\n\n##User data\n${user}\n\n##User info\n${JSON.stringify(info)}`;
+
   const continueParallel: mls.msg.AgentIntentPromptReady = {
     type: "prompt_ready",
     args,
@@ -112,9 +113,6 @@ async function afterPromptStep(
   const output = payload.result;
   intents = await processOutput(context, output, agent);
 
-  
-  
-
   const updateStatus: mls.msg.AgentIntentUpdateStatus = {
     type: 'update-status',
     hookSequential,
@@ -123,6 +121,7 @@ async function afterPromptStep(
     taskId: context.task?.PK || '',
     parentStepId: parentStep.stepId,
     stepId: step.stepId,
+    cleaner: 'input_output',
     status
   };
 
@@ -132,8 +131,8 @@ async function afterPromptStep(
 
 async function processOutput(context: mls.msg.ExecutionContext, output: any, agent: IAgentMeta): Promise<mls.msg.AgentIntent[]> {
 
-  const orch = getMaterializeOrchestrator(output.path); 
-  await orch.createStorFile(output.outputPath, output.srcFile);
+  const orch = getMaterializeOrchestrator(output.path);
+  await orch.createStorFile(output.outputPath, parseAISource(output.srcFile));
 
   const group = await orch.processGroup(output.id);
   const newSteps: mls.msg.AgentIntentAddStep[] = [];
@@ -148,7 +147,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
       threadId: context.message.threadId,
       taskId: context.task?.PK || '',
       parentStepId: 1,
-      stepTitle: g+" file {{completed}} of {{total}}, errors: {{failed}}",
+      stepTitle: g + " file {{completed}} of {{total}}, errors: {{failed}}",
       step:
       {
         type: 'agent',
@@ -166,8 +165,20 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
     newSteps.push(newStep)
 
   });
-  
+
   return newSteps;
+}
+
+function parseAISource(raw: string): string {
+  // Após JSON.parse, o \\n já virou \n corretamente
+  // Só precisa decodificar unicode escapes que o modelo insistir em usar
+  return decodeUnicodeEscapes(raw);
+}
+
+function decodeUnicodeEscapes(src: string): string {
+  return src.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
+    String.fromCharCode(parseInt(hex, 16))
+  );
 }
 
 
@@ -178,7 +189,14 @@ const system1 = `
 You must return the result following the skill's steps. The return value should be sent in the srcFile attribute.
 
 ## Output format
-You must return the object strictly as JSON
+All code inside string values MUST have:
+- Newlines escaped as \\n
+- Double quotes escaped as \\"
+- Backslashes escaped as \\\\
+Never return raw multiline strings inside JSON values.
+
+You must return strictly valid JSON following exactly this structure:
+
 [[OutputSection]]
 
 `
@@ -187,16 +205,14 @@ You must return the object strictly as JSON
 export type Output =
   {
     type: "flexible";
-    result: OutputResult; 
+    result: {
+      path: string; // same value by "User info";
+      id: string; // same value by "User info";
+      outputPath: string, // same value by "User info";
+      srcFile: string
+    }
   }
 
-export type OutputResult =
-  {
-    path: string; // same value by "User info";
-    id: string; // same value by "User info";
-    outputPath: string, // same value by "User info";
-    srcFile: string
-  }
 //#endregion 
 
 

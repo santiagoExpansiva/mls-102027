@@ -3,9 +3,11 @@
 import { getMaterializeIndex } from '/_102027_/l2/defsAST.js'
 import { collabImport } from '/_102027_/l2/collabImport.js';
 import { createStorFile, IReqCreateStorFile } from '/_102027_/l2/libStor.js';
-import { createModelAnyFile } from '/_102027_/l2/libModel.js';
+import { createModelAnyFile } from '/_102027_/l2/libModel.js'; 
 
 const cacheMaterializeOrchestrator = new Map<string, MaterializeOrchestrator>();
+const buildCache = new Map<string, Record<string, any>>();
+let esbuildReady: Promise<void> | null = null;
 
 export function getMaterializeOrchestrator(defPath: string): MaterializeOrchestrator {
     if (!cacheMaterializeOrchestrator.has(defPath)) {
@@ -13,10 +15,25 @@ export function getMaterializeOrchestrator(defPath: string): MaterializeOrchestr
         orchestrator.onAllCompleted = () => {
             console.info('kill path:' + defPath);
             cacheMaterializeOrchestrator.delete(defPath);
+            buildCache.delete(defPath);
         };
         cacheMaterializeOrchestrator.set(defPath, orchestrator);
     }
     return cacheMaterializeOrchestrator.get(defPath)!;
+}
+
+
+
+async function getEsbuild() {
+    const url = 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esm/browser.js'
+    const esbuild = await import(url);
+    if (!esbuildReady) {
+        esbuildReady = esbuild.initialize({
+            wasmURL: 'https://cdn.jsdelivr.net/npm/esbuild-wasm@0.25.4/esbuild.wasm',
+        });
+    }
+    await esbuildReady;
+    return esbuild;
 }
 
 export class MaterializeOrchestrator {
@@ -218,7 +235,7 @@ export class MaterializeOrchestrator {
         }, {} as GroupedByAgent);
     }
 
-    public async getVar(path: string, variable: string): Promise<string> {
+    public async getVarOld(path: string, variable: string): Promise<string> {
 
         try {
             const f = mls.stor.convertFileReferenceToFile(path);
@@ -285,6 +302,93 @@ export class MaterializeOrchestrator {
 
         return sf;
 
+    }
+
+
+
+
+    public async getVar(path: string, variable: string): Promise<string> {
+        try {
+            const f = mls.stor.convertFileReferenceToFile(path);
+            if (!f) return '';
+
+            const module = await collabImport(f as any);
+
+            if (module && variable in module) {
+                const result = module[variable];
+                if (typeof result === 'object') return JSON.stringify(result);
+                return await this.processTemplate(result);
+            }
+
+            // Módulo não tinha a variável — tenta buildar via esbuild
+            const built = await this.buildAndExtract(path, variable);
+            if (built !== null) return built;
+
+            console.warn(`[getVar] Variable não encontrada após build: ${path}; ${variable}`);
+            return '';
+
+        } catch (err) {
+            console.error(`Erro em ${path}`, err);
+            return '';
+        }
+    }
+
+    private async buildAndExtract(path: string, variable: string): Promise<string | null> {
+        try {
+            // Retorna do cache se já foi buildado
+            if (buildCache.has(path)) {
+                const cached = buildCache.get(path)!;
+                if (variable in cached) {
+                    const value = cached[variable];
+                    if (typeof value === 'object') return JSON.stringify(value);
+                    return await this.processTemplate(String(value));
+                }
+                // Arquivo já foi buildado mas não tem a variável — não tenta de novo
+                console.warn(`[buildAndExtract] Variável não encontrada no cache: ${path}; ${variable}`);
+                return null;
+            }
+
+            const f = mls.stor.convertFileReferenceToFile(path);
+            if (!f) return null;
+
+            const key = mls.stor.getKeyToFile(f);
+            const sf = mls.stor.files[key];
+            if (!sf) return null;
+
+            const src = await sf.getContent() as string;
+
+            console.info('Needed esbuild:' + path);
+            const esbuild = await getEsbuild();
+
+            const result = await esbuild.transform(src, {
+                loader: 'ts',
+                format: 'esm',
+                target: 'esnext',
+            });
+
+            const blob = new Blob([result.code], { type: 'text/javascript' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            try {
+                const mod = await import(blobUrl);
+
+                // Salva o módulo inteiro no cache — não só a variável pedida
+                buildCache.set(path, mod);
+
+                if (variable in mod) {
+                    const value = mod[variable];
+                    if (typeof value === 'object') return JSON.stringify(value);
+                    return await this.processTemplate(String(value));
+                }
+                return null;
+            } finally {
+                URL.revokeObjectURL(blobUrl);
+            }
+
+        } catch (err) {
+            console.error(`[buildAndExtract] Erro ao buildar ${path}`, err);
+            return null;
+        }
     }
 
 }
