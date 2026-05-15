@@ -103,7 +103,7 @@ When referencing i18n text in the template, use only keys from **Table D**. Neve
 
 \`\`\`ts
 @customElement('<tagName from JSON>')
-export class <className from JSON> extends <extends from JSON> {
+export class <className from JSON Make sure the first letter is capitalized.> extends <extends from JSON> {
   render() { ... }
 }
 \`\`\`

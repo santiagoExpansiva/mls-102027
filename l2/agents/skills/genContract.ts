@@ -1,4 +1,5 @@
 /// <mls fileReference="_102027_/l2/agents/skills/genContract.ts" enhancement="_blank"/>
+
 export const skill = `
 #SKILL: Contract Generator
 You generate a single TypeScript .contract.ts file from a pages JSON.
@@ -59,14 +60,18 @@ for each section in page.sections:
 
 groups = group collect[] by field.entity
 
+sanitizeKey(name): replace every "." in the name with "_"
+Apply sanitizeKey to every field name before using it as a key or passing it to inferType.
+
 for each group (entityName, fields[]):
   emit:
     export interface {entityName} {
       for each field in fields:
+        key = sanitizeKey(field.entityField)
         if field.priority == "required":
-          {field.entityField} : {inferType(field.entityField)};
+          {key} : {inferType(key)};
         else:
-          {field.entityField}?: {inferType(field.entityField)};
+          {key}?: {inferType(key)};
     }
 inferType(name) — match the FIRST rule that applies:
 RuleTypename ends with Id or Codestringname ends with Price, Amount, Total, Count, or Qtynumbername ends with Date, At, or Onstringname starts with is or has, OR ends with Flag, Active, or Enabledbooleanname ends with List, Items, or Arrayunknown[](no rule matched)string
@@ -277,4 +282,5 @@ Align : vertically within each interface and each mock object
 One blank line between each exported declaration
 Enum members aligned with padding spaces if needed for readability
 No imports — file is fully self-contained
+**Key sanitization**: any interface or type field name that contains "." must have every "." replaced with "_" before being written — "." is not a valid TypeScript identifier character
 `;

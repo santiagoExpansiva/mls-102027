@@ -1,315 +1,143 @@
 /// <mls fileReference="_102027_/l2/agents/skills/genPageShared.ts" enhancement="_blank"/>
 
 export const skill = `
----
 # Lit Base Component — Shared File Generator
 
-You generate a **Shared** TypeScript file: a headless Lit 3 base class that holds all reactive state and communicates with the backend via \`execBff\`. It never renders, never registers a custom element, **never declares any enum**, and **never dispatches events** — all enums are imported from the contract, and all public methods (navigation, emits) are plain functions that the extending WebComponent calls directly.
+You generate a **Shared** TypeScript file: a headless Lit 3 base class that holds all reactive state and communicates with the backend via \`execBff\`. It never renders, never registers a custom element, never declares any enum, and never dispatches events.
 
 ---
 
-## Inputs you need
+## SOURCES OF TRUTH — build before writing any code
 
-| Input | What it is |
-|---|---|
-| **pages JSON** | Source of truth for page structure, organisms, states, emits, navigation |
-| **contract .ts file** | Already-generated file with interfaces, enums and mocks. **Import everything from here — do NOT redeclare anything.** |
+Extract these maps from the two inputs first. Every identifier you write must trace back to one of them.
 
----
-
-## CRITICAL — Never invent states or types
-
-You **must not** create any \`@state()\`, \`@property()\`, type, or interface that is not explicitly derived from one of the two inputs above.
-
-- Every **data state** must map to an \`entityField\` declared in \`dataShape.entityFields\` of the pages JSON
-- Every **computed state** must map to a \`computedField\` declared in the pages JSON
-- Every **temp state** must appear in \`pages[*].tempStates\` or \`organism[*].tempStates\`
-- Every **action state** (e.g. \`Loading\`) must appear in \`pages[*].actionStates\` with its enum imported from the contract
-- Every **type** used in \`@state()\` or \`@property()\` must be a primitive (\`string\`, \`number\`, \`boolean\`) or an enum/interface that already exists in the contract
-- If a field, enum, or interface is not in the inputs, **do not declare it** — flag the gap as a discrepancy instead
-
----
-
-## CRITICAL — \`action\` state type
-
-Scan the contract for every exported enum whose name ends in \`Action\` (e.g. \`TempStateAction\`, \`NavigationFieldsAction\`, \`EmitsAction\`). The \`action\` state is a **union of all of them**:
-
-\`\`\`ts
-@state() action: TempStateAction | NavigationFieldsAction | EmitsAction | null = null;
-\`\`\`
-
-- If the contract has 2 \`*Action\` enums → union has 2 members. If 4 → union has 4.
-- **Never use only one \`*Action\` enum as the type**
-- **Never declare a new enum in this file**
-
----
-
-## CRITICAL — \`updated()\` covers every enum value
-
-\`updated()\` must have one \`if\` branch for **every value across every \`*Action\` enum** in the union — not just \`EmitsAction\`, all of them.
-
-\`\`\`ts
-updated(changed: Map<string, unknown>) {
-  if (changed.has('action')) {
-    // EmitsAction
-    if (this.action === EmitsAction.SUBMIT_LOGIN)           this._submitLogin();
-
-    // NavigationFieldsAction
-    if (this.action === NavigationFieldsAction.TO_FORGOT_PASSWORD) this.navigateToForgotPassword();
-    if (this.action === NavigationFieldsAction.TO_REGISTER)        this.navigateToRegister();
-
-    // TempStateAction
-    if (this.action === TempStateAction.SHOW_PASSWORD)      this._toggleShowPassword();
-    if (this.action === TempStateAction.REMEMBER_ME)        this._toggleRememberMe();
-    if (this.action === TempStateAction.ERROR_MESSAGE)      this._clearErrorMessage();
-  }
-}
-\`\`\`
-
-Rules for \`updated()\`:
-- One \`if\` per enum value — no \`else if\`, no \`switch\`
-- Group by enum with a comment header
-- Only generate \`updated()\` if at least one action exists
-- Only generate \`connectedCallback()\` if something dispatches on mount
-
----
-
-## CRITICAL — No \`dispatchEvent\` anywhere
-
-The Shared file **never** calls \`dispatchEvent\`. Navigation and emit methods are plain \`public\` functions. The WebComponent that extends this class is responsible for wiring them to DOM events if needed.
-
-\`\`\`ts
-// ✅ correct — plain method, no dispatch
-public navigateToForgotPassword() {
-  // e.g. update a router state, call a service, change a @state()
-}
-
-public emitSubmitLogin() {
-  // prepare payload, call a service, or just update state
-  // NO dispatchEvent here
-}
-
-// ❌ wrong
-public navigateToForgotPassword() {
-  this.dispatchEvent(new CustomEvent(...));  // NEVER
-}
-\`\`\`
-
----
-
-## Triple Slash (Mandatory)
-
-Every file MUST start with the triple slash directive as its first line.
-
-\`\`\`ts
-/// <mls fileReference="_XXXXX_/l2/path/file.ts" enhancement="_102020_/l2/enhancementAura" />
-\`\`\`
-
-Built from project + outputPath:
-Given { "project": 102027, "outputPath": "/l2/petshop/product/shared.ts" }:
-
-\`\`\`ts
-/// <mls fileReference="_102027_/l2/petshop/product/shared.ts" enhancement="_102020_/l2/enhancementAura" />
-\`\`\`
-
----
-
-## Reasoning process — follow this order
-
-### Step 0 - Name class export
-pageName atributte + "Shared" === ex: export class LoginShared
-
-### Step 1 — Understand the page
-Read \`pages[*].purpose\` and each \`organism[*].purpose\`.
-
-### Step 2 — Identify \`@property()\` fields
-Only values that come from outside: \`dataShape.params\` with \`source.from === "route"\` or \`"input"\`.
-
-### Step 3 — Identify \`@state()\` fields
-
-> **Rule**: Every state listed below must be traceable to the pages JSON or the contract. If a field is not in either input, do not declare it.
-
-**Control states** — always present:
-\`\`\`ts
-@state() action:  TempStateAction | NavigationFieldsAction | EmitsAction | null = null;
-@state() loading: boolean = false;
-@state() error:   string | null = null;
-\`\`\`
-
-**Data states** — one primitive per \`entityField\` in \`dataShape.entityFields\`:
-- Name = \`entity_entityField\` (e.g. \`entity: "user"\`, \`entityField: "email"\` → \`user_email\`)
-- NEVER use an interface as \`@state()\` type — always expand to primitives
-
-**Computed states** — one per \`computedField.fieldId\`:
-- Type: \`boolean\` if name starts with \`is\`, \`has\`, \`can\`, \`should\`; otherwise \`string\`
-
-**Temp states** — from \`pages[*].tempStates\` and \`organism[*].tempStates\`:
-- Name = last segment of \`stateKey\`, camelCase
-- Initial value from \`initialValue\`
-
-**Action states** — from \`pages[*].actionStates\`:
-- Import enum from contract (e.g. \`Loading\`)
-- Name = last segment of \`stateKey\`, camelCase
-- Initial value = first value in \`values[]\` using the enum
-
-### Step 4 — Map every enum value to a handler method
-
-For each \`*Action\` enum in the contract, map every value to a private or public method:
-
-| Enum | Value | Handler |
+| Map | Source | What to collect |
 |---|---|---|
-| \`EmitsAction\` | each event | \`private async _methodName()\` — calls bff |
-| \`NavigationFieldsAction\` | each target | \`public navigateTo*()\` — updates state or calls router |
-| \`TempStateAction\` | each toggle/flag | \`private _toggleName()\` or \`private _clearName()\` — flips a \`@state()\` |
+| **M-Enums** | contract file | every exported enum + every declared value, read verbatim |
+| **M-Interfaces** | contract file | every exported interface |
+| **M-Mocks** | contract file | every exported mock variable |
+| **M-Props** | pages JSON \`dataShape.params\` where \`source.from\` is \`"route"\` or \`"input"\` | field name, type |
+| **M-States** | pages JSON (all state sources below) | field name, type, initial value |
+| **M-i18n** | JSON \`i18n\` section | every key in \`i18n.keys\`, every language in \`i18n.languages\` |
 
-### Step 5 — Design bff action methods (\`EmitsAction\` values)
+**M-States** collects four sub-groups:
+- **Control** — always present: \`action\`, \`loading\`, \`error\`
+- **Data** — one per \`entityField\` in \`dataShape.entityFields\`
+- **Computed** — one per \`computedField.fieldId\`
+- **Temp** — from \`pages[*].tempStates\` and \`organism[*].tempStates\`
+- **ActionState** — from \`pages[*].actionStates\` (enum-typed, e.g. a Loading state)
 
-For each \`emits\` entry → one \`private async\` method:
-1. \`this.action = null\` — ALWAYS the first line
-2. \`this.loading = true\` + \`this.error = null\`
-3. bff call wrapped in commented block
-4. Mock line using contract mocks
-5. Distribute result into \`@state()\` fields
-6. Call computed methods
-7. Update action state enum (e.g. \`this.loginLoading = Loading.SUCCESS\`)
-8. \`this.loading = false\`
+If a name is not in any map → do not use it. Flag as \`// DISCREPANCY: not found\`.
 
-### Step 6 — Design temp state toggle methods (\`TempStateAction\` values)
+---
 
-Simple synchronous methods that flip or clear a \`@state()\`:
+## GENERATION SEQUENCE — follow in order
 
-\`\`\`ts
-private _toggleShowPassword() {
-  this.action       = null;
-  this.showPassword = !this.showPassword;
-}
+---
 
-private _toggleRememberMe() {
-  this.action     = null;
-  this.rememberMe = !this.rememberMe;
-}
+### Step 1 — Triple Slash (first line, mandatory)
 
-private _clearErrorMessage() {
-  this.action       = null;
-  this.errorMessage = '';
-}
+Derived from JSON \`project\` and \`outputPath\`:
 \`\`\`
-
-Always start with \`this.action = null\`.
-
-### Step 7 — Design navigation methods (\`NavigationFieldsAction\` values)
-
-Public methods. No \`dispatchEvent\`. Update state or call a router directly:
-
-\`\`\`ts
-public navigateToForgotPassword() {
-  this.action = null;
-  // router call or state change here
-}
-
-public navigateToRegister() {
-  this.action = null;
-}
-\`\`\`
-
-Always start with \`this.action = null\`.
-
-### Step 8 — Design emit methods (\`EmitsAction\` values — public surface)
-
-These are separate public methods that expose the payload. No \`dispatchEvent\`:
-
-\`\`\`ts
-public emitSubmitLogin() {
-  // payload available as state; extending component reads it
-  this.action = null;
-}
-\`\`\`
-
-### Step 9 — Computed field methods
-
-One \`private\` method per \`computedField\`. Called inside bff action methods after field distribution:
-
-\`\`\`ts
-private _computeIsFormValid() {
-  this.isFormValid =
-    this.user_email.includes('@') &&
-    this.user_password.length >= 8;
-}
+/// <mls fileReference="_{project}_{outputPath}" enhancement="_102020_/l2/enhancementAura" />
 \`\`\`
 
 ---
 
+### Step 2 — Imports
 
-## Imports
-
+Fixed imports, always present:
 \`\`\`ts
-import {CollabLitElement } from '/_102029_/l2/collabLitElement.js';
+import { CollabLitElement } from '/_102029_/l2/collabLitElement.js';
 import { property, state }  from 'lit/decorators.js';
 import { execBff }          from '/_102029_/l2/bffClient.js';
 import { bindExpectedNavigationLoad, consumeExpectedNavigationLoad } from '/_102029_/l2/interactionRuntime.js';
 \`\`\`
 
-From the contract (\`import type\` for interfaces, regular \`import\` for enums and mocks):
-\`\`\`ts
-import type { user } from '{interfacePath}';
-import {
-  TempStateAction,
-  NavigationFieldsAction,
-  EmitsAction,
-  Loading,
-  Mock_user,
-} from '{interfacePath}';
-\`\`\`
-
-Derive \`{interfacePath}\` from the contract's \`fileReference\`, replacing \`.ts\` with \`.js\`.
+From the contract (path = contract \`fileReference\` with \`.ts\` → \`.js\`):
+- \`import type { <Name> }\` — for every interface from M-Interfaces used in bff calls
+- \`import { <EnumName>, <MockName>, ... }\` — for every enum from M-Enums and every mock from M-Mocks used
 
 ---
 
-## I18n block
+### Step 3 — i18n block (always mandatory)
 
-When \`i18n\` is present in the JSON, generate the i18n block **between the imports and the class declaration**, using the mandatory markers:
+Every Shared file must have this block between the imports and the class. No exceptions. 
 
 \`\`\`ts
 /// **collab_i18n_start**
 const message_en = {
-  loading: 'Loading...',
-  retry: 'Retry',
-  // one entry per key in i18n.keys
+  // one entry per key in M-i18n — use sensible English text
 };
-const message_pt = {
-  loading: 'Carregando...',
-  retry: 'Tentar novamente',
-};
+// repeat for each additional language in M-i18n.languages . In the available language keys, always use only 2 characters.
 type MessageType = typeof message_en;
-const messages: { [key: string]: MessageType } = { en: message_en, pt: message_pt };
+export const messages: { [key: string]: MessageType } = { en: message_en, /* other languages */ };
 /// **collab_i18n_end**
 \`\`\`
 
-> Generate one entry per key listed in \`i18n.keys\`. Generate all languages listed in \`i18n.languages\`. Use sensible translations — \`en\` for English, \`pt\` for Brazilian Portuguese.
+Rules:
+- \`message_en\` is **always required** — it is the system fallback
+- If the JSON has no \`i18n\` section, generate a minimal \`message_en\` with a \`loading\` key
 
-Inside the class body, declare \`msg\` as **\`protected\`** so the extending WebComponent can reassign it in its own \`render()\`:
 
+---
+
+### Step 4 — Class declaration
+Make sure the first letter is capitalized in pageName.
 \`\`\`ts
-export class LoginShared extends CollabLitElement {
+export class <pageName>Shared extends CollabLitElement {
   protected msg = messages['en'];
-
-  // ... @property(), @state(), methods ...
+  // fields and methods follow
 }
 \`\`\`
 
-**Rules:**
-- Only generate the i18n block when \`i18n\` is present in the JSON. If absent, omit block and field entirely.
-- **\`message_en\` is mandatory** — always generate the English dictionary regardless of what \`i18n.languages\` lists. \`en\` is the fallback language used throughout the system.
-- Generate additional language dictionaries for every other language listed in \`i18n.languages\`.
-- Use **\`protected\`**, never \`private\` — the Render class inherits and overwrites this field at render time.
-- Never add keys not declared in \`i18n.keys\`. Never invent translations for keys not in the input.
-- The language resolution (\`document.documentElement.lang\`) is the **Render's** responsibility. The Shared only declares the block and the initial value.
+- Class name = JSON \`pageName\` attribute + \`"Shared"\`
+- \`protected msg\` — always present, never \`private\`
+- Never register a custom element
 
 ---
-## interactionRuntime
 
-Allways implement this in \`connectedCallback()\` when something dispatches on mount (e.g. navigation with \`dispatchOnMount\) to ensure the page waits for the expected navigation load before rendering.
+### Step 5 — Fields inside the class
 
+#### @property() fields
+One per entry in M-Props:
+\`\`\`ts
+@property() <name>: <type> = <defaultValue>;
+\`\`\`
+
+#### @state() fields
+
+**Control states — always present:**
+\`\`\`ts
+@state() action:  <union of every enum in M-Enums whose name ends in "Action"> | null = null;
+@state() loading: boolean = false;
+@state() error:   string | null = null;
+\`\`\`
+
+The \`action\` type is a union of **every** \`*Action\` enum from M-Enums. If M-Enums has 3 \`*Action\` enums, the union has 3 members.
+
+**Data states** — one per entry in M-States.Data:
+- Name: \`<entity>_<entityField>\` (both lowercased, joined by underscore)
+- Type: primitive only — never use an interface
+
+**Computed states** — one per entry in M-States.Computed:
+- Type: \`boolean\` if fieldId starts with \`is\`, \`has\`, \`can\`, \`should\`; otherwise \`string\`
+- Initial value: \`false\` or \`''\` accordingly
+
+**Temp states** — one per entry in M-States.Temp:
+- Name: last segment of \`stateKey\`, camelCase
+- Initial value: from \`initialValue\` in the JSON
+
+**ActionState fields** — one per entry in M-States.ActionState:
+- Name: last segment of \`stateKey\`, camelCase
+- Type: the enum named in the entry — read from M-Enums
+- Initial value: the **first declared value** of that enum in M-Enums
+
+---
+
+### Step 6 — Lifecycle methods
+
+#### connectedCallback — Always implement this.
 \`\`\`ts
 connectedCallback() {
   super.connectedCallback();
@@ -318,101 +146,139 @@ connectedCallback() {
 }
 \`\`\`
 
+#### firstUpdated — Do this for all functions that load states (mocks).
+\`\`\`ts
+override firstUpdated() {
+  this._<initialLoadMethod>();  // one call per initial-load method
+}
+\`\`\`
+
+#### updated — only when M-Enums has at least one \`*Action\` enum
+\`\`\`ts
+updated(changed: Map<string, unknown>) {
+  if (changed.has('action')) {
+    // <EnumName> — one comment header per enum group
+    if (this.action === <EnumName.VALUE>) this._<handlerName>();
+    // ... one if per value, no else if, no switch
+  }
+}
+\`\`\`
+
+Every value from every \`*Action\` enum in M-Enums must have exactly one \`if\` branch here.
+
 ---
 
-## execBff pattern — CRITICAL
+### Step 7 — BFF action methods (one per EmitsAction value)
 
-\`execBff\` never throws on server errors. Always resolves with \`{ data, error, ok }\`.
+One \`private async\` method per value in the \`EmitsAction\` enum (from M-Enums).
 
+Fixed internal order — never deviate:
 \`\`\`ts
-private async _submitLogin() {
-  this.action  = null;         // ← ALWAYS first
+private async _<methodName>() {
+  this.action  = null;   // ALWAYS first
   this.loading = true;
   this.error   = null;
 
   try {
     /*
     // Remove comment to execute
-    const result = await execBff<user>(
-      'user.submitLogin',
-      { email: this.user_email, password: this.user_password },
+    const result = await execBff<<InterfaceName>>(
+      '<bff.key>',
+      { <param>: this.<stateField>, ... },
     );
     if (result.error) {
-      this.error        = result.error.message;
-      this.errorMessage = result.error.message;
-      this.loginLoading = Loading.ERROR;
-      this.loading      = false;
-      return;
-    }
-    const res = result.data;
-    if (!res) {
+      this.error   = result.error.message;
       this.loading = false;
       return;
     }
+    const res = result.data;
+    if (!res) { this.loading = false; return; }
     */
 
-    const res: user = Mock_user[0];
+    // Mock — single object:
+    const res: <InterfaceName> = Mock_<Name>[0];
+    // Mock — array:
+    // const res: <InterfaceName>[] = Mock_<Name>;
 
-    this.user_email    = res.email;
-    this.user_password = res.password;
-    this._computeIsFormValid();
-    this.loginLoading = Loading.SUCCESS;
-    this.loading      = false;
+    // distribute result fields into @state() fields from M-States
+    this._compute<FieldName>();  // only if computed states exist
+
+    // update ActionState field using its enum — only values that exist in M-Enums
+    this.loading = false;
 
   } catch (e) {
-    this.loading      = false;
-    this.loginLoading = Loading.ERROR;
-    this.error        = (e as Error).message;
+    this.loading = false;
+    this.error   = (e as Error).message;
   }
 }
 \`\`\`
 
-Array result: \`const res: user[] = Mock_user;\` (no \`[0]\`), assign directly to a list \`@state()\`.
-
-**Order inside try — never deviate:**
-1. \`this.action = null\`
-2. \`this.loading = true\` + \`this.error = null\`
-3. Commented \`execBff\` block with full error/guard chain inside
-4. Mock line
-5. Distribute fields
-6. Call computed methods
-7. Update action state enum to SUCCESS
-8. \`this.loading = false\`
-9. \`catch\` → loading = false, action state = ERROR, error message
+Critical rules:
+- \`this.action = null\` is the **first line, always**
+- The \`execBff\` call is always inside a \`/* ... */\` comment block — the mock line runs
+- When updating an ActionState field after success, use only enum values that exist in M-Enums
+- Never reference enum values not declared in M-Enums
 
 ---
 
-## State naming conventions
+### Step 8 — Temp state methods (one per TempStateAction value)
 
-| Source | State name |
-|---|---|
-| \`entity: "user"\`, \`entityField: "email"\` | \`user_email\` |
-| \`stateKey: "ui.login.showPassword"\` | \`showPassword\` |
-| \`stateKey: "ui.login.rememberMe"\` | \`rememberMe\` |
-| \`stateKey: "ui.login.errorMessage"\` | \`errorMessage\` |
-| \`stateKey: "ui.login.loading"\` (actionState) | \`loginLoading\` (\`Loading\` enum) |
-| \`computedField.fieldId: "isFormValid"\` | \`isFormValid: boolean\` |
+One synchronous \`private\` method per value in the \`TempStateAction\` enum:
+\`\`\`ts
+private _<methodName>() {
+  this.action = null;               // ALWAYS first
+  this.<stateField> = !this.<stateField>;  // toggle
+  // or: this.<stateField> = <resetValue>; // clear
+}
+\`\`\`
 
 ---
 
-## What you NEVER do
+### Step 9 — Navigation methods (one per NavigationFieldsAction value)
+
+One \`public\` method per value in the \`NavigationFieldsAction\` enum:
+\`\`\`ts
+public navigateTo<Target>() {
+  this.action = null;  // ALWAYS first
+  // router call or state change here
+}
+\`\`\`
+
+No \`dispatchEvent\`. No \`CustomEvent\`.
+
+---
+
+### Step 10 — Computed field methods
+
+One \`private\` method per entry in M-States.Computed. Called inside Step 7 methods after field distribution:
+\`\`\`ts
+private _compute<FieldName>() {
+  this.<fieldName> = <boolean or string expression using only M-States fields>;
+}
+\`\`\`
+
+---
+
+## FORBIDDEN
 
 - Implement \`render()\`
-- Register a custom element (\`customElements.define\`)
+- Register a custom element (\`customElements.define\` or \`@customElement\`)
 - Declare any enum — all enums come from the contract
-- Use only one \`*Action\` enum as the \`action\` type — always build the full union
+- Build the \`action\` union from fewer \`*Action\` enums than M-Enums contains — always include all
 - Leave any \`*Action\` enum value without a branch in \`updated()\`
 - Call \`dispatchEvent\` anywhere — not in navigation, not in emits, nowhere
-- Use an interface type directly as \`@state()\` — always expand to primitives
-- Put \`this.action = null\` anywhere other than the first line of each handler method
-- Generate \`updated()\` when there are no actions
+- Use an interface as \`@state()\` type — always expand to primitives
+- Place \`this.action = null\` anywhere other than the first line of a handler method
+- Generate \`updated()\` when no \`*Action\` enums exist
 - Generate \`connectedCallback()\` when nothing dispatches on mount
-- **Invent \`@state()\` fields not present in the pages JSON** — every data, computed, temp, and action state must be traceable to the input
-- **Invent types, interfaces, or enums** not already declared in the contract — if something is missing, flag it as a discrepancy and do not fabricate it
-- Declare \`msg\` as \`private\` — it must be \`protected\` so the extending Render can reassign it
-- Generate the i18n block when \`i18n\` is absent from the JSON
-- Add i18n keys not declared in \`i18n.keys\`
-- Resolve the language (\`document.documentElement.lang\`) inside the Shared — that is the Render's responsibility
+- Generate \`firstUpdated()\` when no initial-load methods exist
+- Invent \`@state()\` or \`@property()\` fields not traceable to the inputs
+- Invent types, interfaces, or enums not in the contract
+- Declare \`msg\` as \`private\` — must be \`protected\`
+- Omit the i18n block — it is always mandatory
+- Add i18n keys not in M-i18n
+- Resolve \`document.documentElement.lang\` inside the Shared — that is the Render's responsibility
+- Use enum values not declared in M-Enums (read each enum's actual declaration — do not assume values)
 
 ---
-`
+`;

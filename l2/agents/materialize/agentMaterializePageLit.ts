@@ -14,7 +14,7 @@ export function createAgent(): IAgentAsync {
     visibility: "public",
     beforePromptImplicit,
     beforePromptStep,
-    afterPromptStep
+    afterPromptStep 
   };
 }
 
@@ -177,7 +177,7 @@ async function getSkill(info: { path: string, item: mls.defs.MaterializeEntry, p
 }
 
 function parseAISource(raw: string): string {
-  return decodeUnicodeEscapes(raw);
+  return raw; decodeUnicodeEscapes(raw);
 }
 
 function decodeUnicodeEscapes(src: string): string {
@@ -187,20 +187,23 @@ function decodeUnicodeEscapes(src: string): string {
 }
 
 const system1 = `
-<!-- modelType: codeflash-->
+<!-- modelType: codereasoning-->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
-You must return the result following the skill's steps. The return value should be sent in the srcFile attribute.
+You must return ONLY a valid JSON object. No preamble, no explanation, no markdown
+fences, no text before or after the JSON. Start your response with { and end with }
 
 
 ## Output format
-All code inside string values MUST have:
-- Newlines escaped as \\n
-- Double quotes escaped as \\"
-- Backslashes escaped as \\\\
-Never return raw multiline strings inside JSON values.
+The srcFile value must be a single-line JSON string.
+Escape ALL special characters inside it:
+  - newlines     → \n
+  - tabs         → \t
+  - double quotes → \"
+  - backslashes  → \\
+Never embed raw multiline code blocks inside a JSON string value.
 
-You must return strictly valid JSON following exactly this structure:
+Return strictly this structure:
 
 [[OutputSection]]
 

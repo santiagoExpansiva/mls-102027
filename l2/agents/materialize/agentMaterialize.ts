@@ -3,7 +3,7 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js';
 import { findPreviousAgentStep } from '/_102027_/l2/aiAgentHelper.js';
-
+ 
 export function createAgent(): IAgentAsync {
   return {
     agentName: "agentMaterialize",
@@ -158,7 +158,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
 }
 
 const system1 = `
-<!-- modelType: code-->
+<!-- modelType: codeinstruct-->
 <!-- modelTypeList: geminiChat (2.5 pro), code (grok), deepseekchat, codeflash (gemini), deepseekreasoner, mini (4.1) ou nano (openai), codeinstruct (4.1), codereasoning(gpt5), code2 (kimi 2.5) -->
 
 Return same content
