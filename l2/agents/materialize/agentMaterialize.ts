@@ -3,7 +3,7 @@
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
 import { getMaterializeOrchestrator } from '/_102027_/l2/agents/materialize/materializeOrchestrator.js';
 import { findPreviousAgentStep } from '/_102027_/l2/aiAgentHelper.js';
- 
+
 export function createAgent(): IAgentAsync {
   return {
     agentName: "agentMaterialize",
@@ -86,6 +86,11 @@ async function afterPromptStep(
   hookSequential: number,
 ): Promise<mls.msg.AgentIntent[]> {
 
+  if (step.status === 'waiting_after_prompt_with_error') {
+    console.info('[' + agent.agentName + '] Chegou com erro:', step);
+    return [];
+  }
+
   if (!agent || !context || !step) throw new Error(`[afterPromptStep] invalid params, agent:${!!agent}, context:${!!context}, step:${!!step}`);
 
   const payload = (step.interaction?.payload?.[0]);
@@ -134,7 +139,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
         messageId: context.message.orderAt,
         threadId: context.message.threadId,
         taskId: context.task?.PK || '',
-        parentStepId: stepOri || parentStep.stepId ,
+        parentStepId: stepOri || parentStep.stepId,
         step:
         {
           type: 'agent',
@@ -145,6 +150,7 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
           agentName: g,
           prompt: JSON.stringify({ path: output.path, item: i }),
           rags: [],
+          onFailure: 'wait_after_prompt'
         }
       };
 
@@ -153,8 +159,33 @@ async function processOutput(context: mls.msg.ExecutionContext, output: any, age
     })
 
   });
-  
+
   return newSteps;
+}
+
+async function reExecute(context: mls.msg.ExecutionContext, output: any, agent: IAgentMeta, parentStep: mls.msg.AIAgentStep): Promise<mls.msg.AgentIntent[]> {
+
+  const newStep: mls.msg.AgentIntentAddStep = {
+    type: "add-step",
+    messageId: context.message.orderAt,
+    threadId: context.message.threadId,
+    taskId: context.task?.PK || '',
+    parentStepId: parentStep.stepId,
+    step:
+    {
+      type: 'agent',
+      stepId: 0,
+      interaction: null,
+      status: 'waiting_human_input',
+      nextSteps: [],
+      agentName: agent.agentName,
+      prompt: JSON.stringify({ path: output.path, item: '' }),
+      rags: [],
+      onFailure: 'wait_after_prompt'
+    }
+  };
+
+  return [newStep];
 }
 
 const system1 = `

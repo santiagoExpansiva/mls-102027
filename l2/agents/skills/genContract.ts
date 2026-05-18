@@ -90,6 +90,7 @@ typescriptexport interface client {
 }
 
 ##STEP 2 — TempStateAction Enum
+**Key sanitization**: any interface or type field name that contains "." must have every "." replaced with "_" before being written — "." is not a valid TypeScript identifier character
 Read from: pages[i].sections[j].organisms[k].tempStates[]
 Algorithm:
 collect = []
@@ -124,6 +125,7 @@ typescriptexport enum TempStateAction {
 }
 
 ##STEP 3 — NavigationFieldsAction Enum
+**Key sanitization**: any interface or type field name that contains "." must have every "." replaced with "_" before being written — "." is not a valid TypeScript identifier character
 Read from: pages[i].sections[j].organisms[k].navigationFields[]
 Algorithm:
 collect = []
@@ -154,6 +156,7 @@ typescriptexport enum NavigationFieldsAction {
 }
 
 ##STEP 4 — EmitsAction Enum
+**Key sanitization**: any interface or type field name that contains "." must have every "." replaced with "_" before being written — "." is not a valid TypeScript identifier character
 Read from: pages[i].sections[j].organisms[k].emits[]
 Algorithm:
 collect = []
@@ -198,6 +201,7 @@ for each actionState in page.actionStates:
         emit: {memberName} = '{value}',
     }
 toPascalCase: capitalize first letter, keep rest as-is.
+**Key sanitization**: any interface or type field name that contains "." must have every "." replaced with "_" before being written — "." is not a valid TypeScript identifier character
 Example: loading → Loading, zipFetch → ZipFetch
 Example input:
 json"actionStates": [
