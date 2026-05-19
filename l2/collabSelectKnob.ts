@@ -12,10 +12,12 @@ export class SelectOneKnobWidget extends StateLitElement {
   @property({ type: Number, reflect: true }) value: number | null = null;
   @property({ type: Number }) step = 1;
   @property({ type: Boolean, reflect: true }) disabled = false;
+  @property({ type: Boolean, reflect: true }) active = false;
   @property({ type: Boolean, reflect: true }) selected = false;
-  @property({ type: Boolean, attribute: 'show-ticks' }) showTicks = true;
+  @property({ type: Boolean, attribute: 'show-ticks' }) showTicks = false;
 
   @state() private _focused = false;
+  @state() private _editing = false;
 
   private _dragStartY = 0;
   private _dragStartValue = 0;
@@ -53,7 +55,7 @@ export class SelectOneKnobWidget extends StateLitElement {
   }
 
   private get _canInteract(): boolean {
-    return !this.disabled && this.selected;
+    return !this.disabled && this.active;
   }
 
   private _clamp(v: number): number {
@@ -97,6 +99,7 @@ export class SelectOneKnobWidget extends StateLitElement {
       return;
     }
     if (e.key === 'Escape') {
+      this._editing = false;
       this._cancelDigitInput();
       (this.renderRoot as HTMLElement).blur?.();
       return;
@@ -144,7 +147,7 @@ export class SelectOneKnobWidget extends StateLitElement {
     this._dragStartValue = this._hasValue ? this.value! : this.min;
 
     const onMove = (ev: MouseEvent) => {
-      if (!this.selected) return;
+      if (!this.active) return;
       const delta = this._dragStartY - ev.clientY;
       if (Math.abs(delta) > 3) this._dragging = true;
       const steps = Math.round(delta / 8);
@@ -176,14 +179,29 @@ export class SelectOneKnobWidget extends StateLitElement {
 
   private _onBlur() {
     this._focused = false;
+    this._editing = false;
     this._cancelDigitInput();
     this.dispatchEvent(new CustomEvent('knob-blur', { bubbles: true, composed: false }));
+  }
+
+  private _onDisplayClick(e: MouseEvent) {
+    if (this.disabled) return;
+    e.stopPropagation();
+
+    if (!this.active) {
+      this.dispatchEvent(new CustomEvent('knob-click', { bubbles: true, composed: false }));
+      return;
+    }
+
+    this._editing = true;
+    const root = this.renderRoot.querySelector('[data-knob-root]') as HTMLElement;
+    root?.focus();
   }
 
   private _onClick() {
     if (this.disabled) return;
 
-    if (this.selected && !this._dragging) {
+    if (this.active && !this._dragging) {
       this._cycleValue();
     }
 
@@ -209,9 +227,11 @@ export class SelectOneKnobWidget extends StateLitElement {
 
   override render() {
     const rootClasses = [
-      'widgets--select-one-knob-102020',
-      this.selected ? 'is-active' : '',
+      'widgets--select-one-knob-102027',
+      this.active ? 'is-active' : '',
+      this.selected ? 'is-selected' : '',
       this._focused ? 'is-focused' : '',
+      this._editing ? 'is-editing' : '',
       this.disabled ? 'is-disabled' : '',
       this._hasValue ? 'has-value' : '',
       this._pendingDisplay !== null ? 'is-typing' : '',
@@ -247,7 +267,7 @@ export class SelectOneKnobWidget extends StateLitElement {
           <div class="knob__indicator"></div>
         </div>
 
-        <div class="knob__display">
+        <div class="knob__display" @click=${this._onDisplayClick}>
           <span class="knob__value ${this._displayHidden ? 'knob__value--hidden' : ''}">
             ${this._displayValue}
           </span>

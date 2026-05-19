@@ -1,7 +1,5 @@
 /// <mls fileReference="_102027_/l2/collabSelectKnob.less" enhancement="enhancementStyle"/>
 
-/// <mls fileReference="_102027_/l2/collabSelectKnob.less" enhancement="enhancementStyle"/>
-
 collab-select-knob-102027 {
 
     @font-face {
@@ -32,7 +30,7 @@ collab-select-knob-102027 {
     // ─────────────────────────────────────────────
     // Root
     // ─────────────────────────────────────────────
-    .widgets--select-one-knob-102020 {
+    .widgets--select-one-knob-102027 {
         position: relative;
         display: inline-flex;
         flex-direction: column;
@@ -73,7 +71,7 @@ collab-select-knob-102027 {
     }
 
     // No ticks mode: collapse the ring to just fit the body
-    .widgets--select-one-knob-102020.no-ticks {
+    .widgets--select-one-knob-102027.no-ticks {
         .knob__ticks-ring {
             width: @knob-size;
             height: @knob-size;
@@ -152,7 +150,7 @@ collab-select-knob-102027 {
         border-radius: 50%;
         background: #c1ffff;
         opacity: .3;
-        transition: box-shadow @transition-speed ease;
+        transition: box-shadow @transition-speed ease, opacity @transition-speed ease;
     }
 
     // ─────────────────────────────────────────────
@@ -179,6 +177,12 @@ collab-select-knob-102027 {
         overflow: hidden;
     }
 
+    // When active, display becomes clickable for digit-edit mode
+    .widgets--select-one-knob-102027.is-active .knob__display {
+        pointer-events: auto;
+        cursor: text;
+    }
+
     .knob__value {
         font-family: @knob-font;
         font-size: 30px;
@@ -197,12 +201,55 @@ collab-select-knob-102027 {
     }
 
     // ─────────────────────────────────────────────
-    // Selected / Focused state
+    // References for box-shadow calculations
     // ─────────────────────────────────────────────
     @fosso-width-ref: @fosso-width;
     @ring-width-ref: @ring-width;
 
-    .widgets--select-one-knob-102020.is-active {
+    // ─────────────────────────────────────────────
+    // Editing state: display glow to indicate input mode
+    // ─────────────────────────────────────────────
+    @keyframes knob-edit-pulse {
+        0%, 100% {
+            border-color: rgba(77, 184, 255, 0.8);
+            box-shadow:
+                0 0 6px 1px rgba(77, 184, 255, 0.5),
+                0 0 14px 3px rgba(77, 184, 255, 0.2),
+                inset 0 0 8px 1px rgba(77, 184, 255, 0.08);
+        }
+        50% {
+            border-color: rgba(77, 184, 255, 0.4);
+            box-shadow:
+                0 0 4px 1px rgba(77, 184, 255, 0.3),
+                0 0 10px 2px rgba(77, 184, 255, 0.1),
+                inset 0 0 6px 1px rgba(77, 184, 255, 0.04);
+        }
+    }
+
+    .widgets--select-one-knob-102027.is-editing {
+        .knob__display {
+            border-color: rgba(77, 184, 255, 0.8);
+            background: #1a2238;
+            box-shadow:
+                0 0 6px 1px rgba(77, 184, 255, 0.5),
+                0 0 14px 3px rgba(77, 184, 255, 0.2),
+                inset 0 0 8px 1px rgba(77, 184, 255, 0.08);
+            animation: knob-edit-pulse 1.2s ease-in-out infinite;
+        }
+
+        .knob__value {
+            color: #ffffff;
+            text-shadow:
+                0 0 6px rgba(255, 255, 255, 0.6),
+                0 0 14px @knob-color-glow,
+                0 0 24px @knob-color-glow;
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Active state: central indicator light on
+    // ─────────────────────────────────────────────
+    .widgets--select-one-knob-102027.is-active {
 
         .knob__indicator {
             opacity: 1;
@@ -214,6 +261,33 @@ collab-select-knob-102027 {
         }
     }
 
+    // ─────────────────────────────────────────────
+    // Selected state: outer ring glow
+    // ─────────────────────────────────────────────
+    .widgets--select-one-knob-102027.is-selected {
+
+        .knob__body {
+            box-shadow:
+                inset 0 2px 4px rgba(255, 255, 255, 0.06),
+                inset 0 -2px 5px rgba(0, 0, 0, 0.7),
+                0 0 0 @fosso-width-ref #0c0c0c,
+                0 0 0 @ring-width-ref #90a8cc,
+                0 -3px 3px @ring-width-ref #b0d0ff,
+                0 4px 4px @ring-width-ref #28283a,
+                0 3px 2px @ring-width-ref #48485e,
+                -3px 0 3px @ring-width-ref #7098cc,
+                5px 0 3px @ring-width-ref #5878aa,
+                0 0 0 (@ring-width-ref + 1px) rgba(77, 184, 255, 0.7),
+                0 0 6px 3px rgba(77, 184, 255, 0.8),
+                0 0 14px 6px rgba(77, 184, 255, 0.55),
+                0 0 28px 10px rgba(77, 184, 255, 0.35),
+                0 0 45px 15px rgba(77, 184, 255, 0.18);
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Typing blink animation
+    // ─────────────────────────────────────────────
     @keyframes knob-blink {
         0%,
         100% {
@@ -225,13 +299,13 @@ collab-select-knob-102027 {
         }
     }
 
-    .widgets--select-one-knob-102020.is-typing {
+    .widgets--select-one-knob-102027.is-typing {
         .knob__display {
             animation: knob-blink 0.6s ease-in-out infinite;
         }
     }
 
-    .widgets--select-one-knob-102020.is-invalid {
+    .widgets--select-one-knob-102027.is-invalid {
         .knob__value {
             color: #ff4d4d;
             text-shadow:
