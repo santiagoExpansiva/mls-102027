@@ -14,56 +14,97 @@ import * as storage from '/_102036_/l2/collabMessagesIndexedDB.js';
 
 const agentName = 'aiAgentOrchestration';
 
-export async function executeBeforePrompt(agent: IAgent | IAgentAsync, context: mls.msg.ExecutionContext): Promise<void> {
-    // execute one of this: beforePrompt, beforePromptAtomic, beforePromptImplicit
-    if ((agent as IAgent).beforePrompt) return await (agent as IAgent).beforePrompt(context);
-    agent = agent as IAgentAsync;
-    let content = context.message.content;
-    if (content.startsWith("@@")) content = content.split(" ").slice(1).join(" ").trim(); // remove agent name
-    if (mls.isTraceAgent) console.log(`[executeBeforePrompt] content:"${content}"`)
+// ── Event types ──────────────────────────────────────────────────
 
-    if (agent.beforePromptAtomic) {
-        // file ref
-        const { jsonText, rest } = splitJsonAndText(content)
+export type OrchestrationEvent =
+    | { type: 'task-created'; taskId: string; task: mls.msg.TaskData; message?: mls.msg.Message }
+    | { type: 'intents-applied'; task: mls.msg.TaskData; message: mls.msg.Message }
+    | { type: 'hook-start'; hookType: string; stepId: number }
+    | { type: 'hook-done'; hookType: string; intents: mls.msg.AgentIntent[] }
+    | { type: 'pooling-start'; taskId: string }
+    | { type: 'pooling-end'; taskId: string }
+    | { type: 'cycle-done'; remaining: number }
+    | { type: 'error'; error: string; stepId?: number }
+    | { type: 'done' };
+
+// ── executeBeforePrompt (streaming version) ──────────────────────
+
+export async function* executeBeforePromptStream(
+    agent: IAgent | IAgentAsync,
+    context: mls.msg.ExecutionContext
+): AsyncGenerator<OrchestrationEvent, void, unknown> {
+
+    if ((agent as IAgent).beforePrompt) {
+        await (agent as IAgent).beforePrompt(context);
+        yield { type: 'done' };
+        return;
+    }
+
+    const asyncAgent = agent as IAgentAsync;
+    let content = context.message.content;
+    if (content.startsWith("@@")) content = content.split(" ").slice(1).join(" ").trim();
+    if (mls.isTraceAgent) console.log(`[executeBeforePromptStream] content:"${content}"`);
+
+    let intents: mls.msg.AgentIntent[] | undefined;
+
+    if (asyncAgent.beforePromptAtomic) {
+        const { jsonText, rest } = splitJsonAndText(content);
         const file = mls.stor.getFileStorFromJson(jsonText, {});
-        if (mls.isTraceAgent) console.log(`[executeBeforePrompt] isAtomic=${file ? "yes:" + JSON.stringify(file) : "no"}, userPromptAfterJson:${rest}`)
+        if (mls.isTraceAgent) console.log(`[executeBeforePromptStream] isAtomic=${file ? "yes:" + JSON.stringify(file) : "no"}, userPromptAfterJson:${rest}`);
         if (file) {
-            const intents = await agent.beforePromptAtomic(agent, context, file, rest);
-            return await processIntents(agent, context, intents);
+            intents = await asyncAgent.beforePromptAtomic(asyncAgent, context, file, rest);
         }
     }
-    if (agent.beforePromptImplicit) {
-        // no structured args
-        if (mls.isTraceAgent) console.log(`[executeBeforePrompt] implicit`)
-        const intents = await agent.beforePromptImplicit(agent, context, content);
-        return await processIntents(agent, context, intents);
+
+    if (!intents && asyncAgent.beforePromptImplicit) {
+        if (mls.isTraceAgent) console.log(`[executeBeforePromptStream] implicit`);
+        intents = await asyncAgent.beforePromptImplicit(asyncAgent, context, content);
     }
-    throw new Error(`Invalid agent ${agent.agentName}, no beforePrompt`);
+
+    if (!intents) throw new Error(`Invalid agent ${asyncAgent.agentName}, no beforePrompt`);
+
+    yield* processIntentsStream(asyncAgent, context, intents);
 }
+
+/**
+ * Backward-compatible wrapper: consome o generator inteiro e retorna void.
+ * Quem não precisa de streaming continua usando essa.
+ */
+export async function executeBeforePrompt(
+    agent: IAgent | IAgentAsync,
+    context: mls.msg.ExecutionContext
+): Promise<void> {
+    for await (const _event of executeBeforePromptStream(agent, context)) {
+        // consume all events silently
+    }
+}
+
+// ── splitJsonAndText ─────────────────────────────────────────────
 
 function splitJsonAndText(input: string): { jsonText: string; rest: string } {
     const start = input.indexOf("{");
     const end = input.indexOf("}");
-
     if (start === -1 || end === -1 || end < start) return { jsonText: input, rest: "" };
-
     const jsonText = input.slice(start, end + 1).trim();
     const rest = input.slice(end + 1).trim();
-
     return { jsonText, rest };
 }
+
+// ── State ────────────────────────────────────────────────────────
 
 const taskControllers = new Map<string, AbortController>();
 const MAX_HOOKS_PER_TURN = 5;
 const runningTasks = new Set<string>();
 
-async function processIntents(
+// ── processIntents (streaming) ───────────────────────────────────
+
+async function* processIntentsStream(
     agent: IAgentAsync,
     context: mls.msg.ExecutionContext,
     intents: mls.msg.AgentIntent[]
-): Promise<void> {
+): AsyncGenerator<OrchestrationEvent, void, unknown> {
 
-    if (mls.isTraceAgent) console.log(`[processIntents] intents length: ${intents.length}`);
+    if (mls.isTraceAgent) console.log(`[processIntentsStream] intents length: ${intents.length}`);
     const messageId = context.message.createAt;
     if (!messageId) return;
 
@@ -73,21 +114,20 @@ async function processIntents(
     const signal = controller.signal;
 
     try {
-        await _processIntents(agent, context, intents, signal);
-    }
-    finally {
+        yield* _processIntentsStream(agent, context, intents, signal);
+    } finally {
         if (taskControllers.get(messageId) === controller) {
             taskControllers.delete(messageId);
         }
     }
 }
 
-async function _processIntents(
+async function* _processIntentsStream(
     agent: IAgentAsync,
     context: mls.msg.ExecutionContext,
     intents: mls.msg.AgentIntent[],
     signal: AbortSignal
-): Promise<void> {
+): AsyncGenerator<OrchestrationEvent, void, unknown> {
 
     if (signal.aborted) return;
 
@@ -108,7 +148,24 @@ async function _processIntents(
     if (ret.message) context.message = ret.message;
     notifyTaskChange(context, isAddMessageAI ? oldContextCreateAt : undefined);
 
-    if (!context.task?.iaCompressed) return;
+    // ★ Yield: task criada / intents aplicados
+    yield {
+        type: 'task-created',
+        taskId: ret.task.PK,
+        task: ret.task,
+        message: ret.message
+    };
+    yield {
+        type: 'intents-applied',
+        task: ret.task,
+        message: context.message
+    };
+
+    if (!context.task?.iaCompressed) {
+        yield { type: 'done' };
+        return;
+    }
+
     runningTasks.add(ret.task.PK);
 
     await storage.addPooling({
@@ -117,16 +174,18 @@ async function _processIntents(
         startAt: Date.now().toString()
     });
 
+    yield { type: 'pooling-start', taskId: ret.task.PK };
+
     if (signal.aborted) return;
 
     let _hooks = context.task.iaCompressed.queueFrontEnd || [];
     const hooksToProcess = _hooks
         .filter(h => h.type !== 'pooling')
-        .slice(0, 5);
+        .slice(0, MAX_HOOKS_PER_TURN);
 
     let newIntents: mls.msg.AgentIntent[] = [];
 
-    for await (const hook of hooksToProcess) {
+    for (const hook of hooksToProcess) {
         let agentToExecute: IAgentAsync | undefined = agent;
         const agentByHookStep = getStepById(context.task, hook.stepId);
         if (agentByHookStep && agentByHookStep.type === "agent" && agent.agentName !== (agentByHookStep as mls.msg.AIAgentStep).agentName) {
@@ -134,10 +193,21 @@ async function _processIntents(
         }
         if (!agentToExecute) throw new Error(`[${agentName}](startNewAiTask) Invalid agent in hook step`);
         agent = agentToExecute;
-        newIntents.push(...await processIntents2(agentToExecute, context, hook), ...getRemoveIntent(context, hook));
+
+        // ★ Yield: hook iniciando
+        yield { type: 'hook-start', hookType: hook.type, stepId: hook.stepId };
+
+        const hookIntents = await processIntents2(agentToExecute, context, hook);
+        const removeIntents = getRemoveIntent(context, hook);
+        const combined = [...hookIntents, ...removeIntents];
+
+        // ★ Yield: hook finalizado
+        yield { type: 'hook-done', hookType: hook.type, intents: combined };
+
+        newIntents.push(...combined);
     }
 
-    await storage.addOrUpdateTask(context.task); // UI feedback, update task in indexedDB
+    await storage.addOrUpdateTask(context.task);
     if (signal.aborted) return;
 
     if (newIntents.length < 1) {
@@ -145,12 +215,45 @@ async function _processIntents(
         if (newIntents.length < 1) {
             runningTasks.delete(ret.task.PK);
             await storage.deletePooling(ret.task.PK);
-            return; // just leave
+            yield { type: 'pooling-end', taskId: ret.task.PK };
+            yield { type: 'done' };
+            return;
         }
     }
 
-    await _processIntents(agent, context, newIntents, signal); // reentrance processIntents, fire and forget to fast UI feedback 
+    // ★ Yield: ciclo concluído, informando quantos intents restam
+    yield { type: 'cycle-done', remaining: newIntents.length };
+
+    // Reentrada recursiva — continua emitindo eventos
+    yield* _processIntentsStream(agent, context, newIntents, signal);
 }
+
+// ── processIntents (fire-and-forget, para uso interno) ───────────
+
+async function processIntents(
+    agent: IAgentAsync,
+    context: mls.msg.ExecutionContext,
+    intents: mls.msg.AgentIntent[]
+): Promise<void> {
+    for await (const _event of processIntentsStream(agent, context, intents)) {
+        // consume silently — fire and forget behavior
+    }
+}
+
+// ── _processIntents (legacy, para chamadas internas que não precisam stream) ─
+
+async function _processIntents(
+    agent: IAgentAsync,
+    context: mls.msg.ExecutionContext,
+    intents: mls.msg.AgentIntent[],
+    signal: AbortSignal
+): Promise<void> {
+    for await (const _event of _processIntentsStream(agent, context, intents, signal)) {
+        // consume silently
+    }
+}
+
+// ── processIntents2 (sem mudanças) ──────────────────────────────
 
 async function processIntents2(agent: IAgentAsync, context: mls.msg.ExecutionContext, hook: mls.msg.AgentHooks): Promise<mls.msg.AgentIntent[]> {
 
@@ -189,6 +292,8 @@ function getRemoveIntent(context: mls.msg.ExecutionContext, hook: mls.msg.AgentH
         taskId: context.task?.PK || ''
     }];
 }
+
+// ── Hook processors (sem mudanças) ──────────────────────────────
 
 async function processHookBeforePromptStep(agent: IAgentAsync, context: mls.msg.ExecutionContext, hook: mls.msg.AgentHookBeforePromptStep): Promise<mls.msg.AgentIntent[]> {
 
@@ -279,13 +384,14 @@ async function processHookPooling(context: mls.msg.ExecutionContext): Promise<ml
     }
 
     if (!hook || !hook.afterMs || hook.afterMs < 1000 || context.task?.status === 'paused' || inClarification) return [];
-    //if (!hook || !hook.afterMs || hook.afterMs < 1000) return [];
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             resolve(getRemoveIntent(context, hook));
         }, hook.afterMs);
     });
 }
+
+// ── continuePoolingTask ─────────────────────────────────────────
 
 export async function continuePoolingTask(context: mls.msg.ExecutionContext) {
 
@@ -309,9 +415,9 @@ export async function continuePoolingTask(context: mls.msg.ExecutionContext) {
 
     const firstStep = ia.nextSteps?.[0] as mls.msg.AIAgentStep | undefined;
     if (!firstStep) throw new Error('No next step available');
-    const agentName = firstStep.agentName;
-    const agent = await loadAgent(agentName);
-    if (!agent) throw new Error(`[${agentName}] createAgent function not found`);
+    const agentNameLocal = firstStep.agentName;
+    const agent = await loadAgent(agentNameLocal);
+    if (!agent) throw new Error(`[${agentNameLocal}] createAgent function not found`);
 
     runningTasks.add(taskId);
     await storage.addPooling({
@@ -348,6 +454,8 @@ export async function continuePoolingTask(context: mls.msg.ExecutionContext) {
     void processIntents(agent, context, intents);
 }
 
+// ── pauseOrContinueTask ─────────────────────────────────────────
+
 export async function pauseOrContinueTask(
     reason: string,
     context: mls.msg.ExecutionContext,
@@ -382,7 +490,7 @@ export async function pauseOrContinueTask(
 }
 
 
-//Tools
+// ── Tools ────────────────────────────────────────────────────────
 
 export async function executeTool(toolName: string, args: string): Promise<IExecuteToolReturn> {
     const rc: IExecuteToolReturn = {
@@ -398,7 +506,6 @@ export async function executeTool(toolName: string, args: string): Promise<IExec
 
         const tool = await loadTool(toolName);
         if (!args) {
-            // no args provided
             mls.common.argsValidator({}, tool.argsSchema);
             rc.result = await tool.execute();
         } else {
@@ -415,7 +522,7 @@ export async function executeTool(toolName: string, args: string): Promise<IExec
 }
 
 
-// Clarification
+// ── Clarification ────────────────────────────────────────────────
 
 export async function finishClarification(
     agent: IAgent | IAgentAsync,
@@ -560,7 +667,7 @@ export async function getClarificationElement(context: mls.msg.ExecutionContext)
 
 }
 
-// Helpers
+// ── Helpers ──────────────────────────────────────────────────────
 
 export async function getAgentContext(taskId: string): Promise<{
     context: mls.msg.ExecutionContext,
@@ -644,7 +751,6 @@ export async function getInstanceByName(
                 file.shortName !== fileInfo.shortName
             ) continue;
 
-            // 👉 opcional: filtrar por prefixo
             if (mode === 'agent' && !file.shortName.startsWith('agent')) continue;
             if (mode === 'tool' && !file.shortName.startsWith('tool')) continue;
 
@@ -686,13 +792,14 @@ export async function getInstanceByName(
     return undefined;
 }
 
+// ── Types ────────────────────────────────────────────────────────
+
 export interface IExecuteToolReturn {
     status: boolean;
     error: string;
     result: any;
 }
 
-// Types for the JSON structure
 export interface ClarificationValue {
     taskId: string;
     stepId: number;

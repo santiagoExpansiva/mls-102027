@@ -665,14 +665,14 @@ async function _updateModelStatusAny(modelBase: mls.editor.IModelStyle, changed:
 async function _updateModelStatusTS(modelBase: mls.editor.IModelBase, changed: boolean): Promise<void> {
 
     if (!modelBase.storFile) throw new Error('Invalid stor file');
-    const { project, shortName, folder } = modelBase.storFile;
+    const { project, shortName, folder, level } = modelBase.storFile;
 
     if (project === 0 && (shortName === 'loading' || shortName === 'testFile')) return;
 
     modelBase.storFile.hasError = false;
 
 
-    const ok = await mls.l2.typescript.compileAndPostProcess(modelBase, true, true);
+    const ok = await mls.l2.typescript.compileAndPostProcess(modelBase, true, level === 2);
 
     let hasError = ok === false;
     if (!hasError) {
