@@ -318,6 +318,8 @@ function getHookFailureIntents(
 async function processIntents2(agent: IAgentAsync, context: mls.msg.ExecutionContext, hook: mls.msg.AgentHooks): Promise<mls.msg.AgentIntent[]> {
 
     try {
+        if (mls.isTraceAgent) console.log(`[aiAgentOrchestration processIntents2] hook type:"${hook.type}"`, hook);
+
         if (hook.type === "beforePromptStep") return await processHookBeforePromptStep(agent, context, hook);
         if (hook.type === "afterPromptStep") return await processHookAfterPromptStep(agent, context, hook);
         if (hook.type === "beforeTool") return await processHookBeforeTool(agent, context, hook);
@@ -326,6 +328,7 @@ async function processIntents2(agent: IAgentAsync, context: mls.msg.ExecutionCon
     } catch (e: any) {
 
         const error = `error processing taskid:${context.task?.PK}, hook:${hook.type}, message:${e.message || e}`;
+        console.error(error);
         return getHookFailureIntents(context, hook, error, false);
     }
 }
