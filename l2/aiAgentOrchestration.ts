@@ -671,70 +671,10 @@ export async function finishClarification(
 
 }
 
-export async function prepareClarificationElement(
-    agent: IAgent | IAgentAsync,
-    context: mls.msg.ExecutionContext,
-    stepId: number,
-    parentStepId: number,
-    intents: mls.msg.AgentIntent[],
-    clarification: ClarificationValue | Object | string,
-): Promise<HTMLElement> {
-
-    const task = context.task;
-    if (!task) throw new Error(`[${agentName}](startClarification) Invalid context.task`);
-    let clarificationValue: ClarificationValue | Object = {};
-
-    let url = '/_100554_/l2/widgetQuestionsForClarification.js';
-    await import(url);
-    try {
-        let ret: any = clarification;
-        if (typeof clarification === "string") ret = JSON.parse(clarification || '') as any;
-        clarificationValue = {
-            taskId: task.PK,
-            stepId: 0,
-            title: ret.title,
-            legends: ret.legends || [],
-            userLanguage: ret.userLanguage || '',
-            questions: ret.questions
-        }
-    }
-    catch (e) {
-        console.error(e);
-        throw new Error(`[${agentName}](showClarification) on task: ${task.PK}, json clarification invalid`);
-    }
-
-
-    const div: HTMLElement = document.createElement('div');
-    const clariEl = document.createElement('widget-questions-for-clarification-100554');
-
-    clariEl.addEventListener('clarification-finish', (e: Event) => {
-
-        const { detail } = e as CustomEvent<{ value: unknown; action: "continue" | "cancel" }>;
-        const { value, action } = detail;
-        const normalizedValue =
-            value == null
-                ? ''
-                : typeof value === 'object'
-                    ? JSON.stringify(value)
-                    : String(value);
-
-        finishClarification(
-            agent,
-            stepId,
-            parentStepId,
-            intents,
-            context,
-            normalizedValue,
-            action
-        );
-    });
-
-    (clariEl as any).value = clarificationValue;
-    clariEl.setAttribute('mode', 'new');
-    div.appendChild(clariEl);
-    return div;
-
-}
+// NOTE: clarification UI is rendered by the production frontend (mls-102025),
+// not by the orchestration. The widget (widget-questions-for-clarification-102025)
+// lives in mls-102025 so this shared library does not depend on Studio (mls-100554).
+// Agents build the widget locally and wire it to `finishClarification`.
 
 export async function getClarificationElement(context: mls.msg.ExecutionContext): Promise<HTMLElement> {
 
@@ -863,9 +803,10 @@ export async function getInstanceByName(
         return foundInFolder;
     }
 
-    const baseProject = 100554;
-
-    for (const projId of [...projectsToSearch, baseProject]) {
+    // Search only in the current project and its dependencies (no hardcoded
+    // Studio base project). getProjectDependencies(projectActual, true) already
+    // includes the current project plus all of its dependencies.
+    for (const projId of projectsToSearch) {
         const file = searchInProject(projId);
         if (!file) continue;
 
