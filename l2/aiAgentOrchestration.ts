@@ -829,7 +829,12 @@ export async function getInstanceByName(
 
         try {
 
-            const module = await import(`/_${file.project}_/l2/${file.folder ? file.folder.trim() + '/' : ''}${file.shortName}?t=${Date.now()}`)
+            // Cache-bust only files under development (editing mode / project=0):
+            // those must always fetch the latest. Published files use their stable
+            // versionRef so the browser can cache them and only re-fetch when the
+            // version actually changes.
+            const cacheKey = file.inLocalStorage ? Date.now() : encodeURIComponent(file.versionRef);
+            const module = await import(`/_${file.project}_/l2/${file.folder ? file.folder.trim() + '/' : ''}${file.shortName}?t=${cacheKey}`)
             const factoryName = FACTORY_MAP[mode];
             const factory = module[factoryName];
 
