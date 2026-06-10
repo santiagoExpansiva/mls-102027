@@ -7,7 +7,7 @@ import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
 @customElement('collab-monaco-editor-102027')
 export class CollabMonacoEditor extends StateLitElement {
 
-    @property({ attribute: 'msize' }) msize: string = '';
+    @property({ attribute: 'msize',  hasChanged: () => true }) msize: string = '';
 
     public mlsEditor: any;
 
