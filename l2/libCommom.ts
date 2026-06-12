@@ -186,6 +186,27 @@ export function setLocalProjectName(prjName: string) {
     localStorage.setItem(keyLocalProject, prjName)
 }
 
+const keyLocalProjectDependencies = 'projectLocalDependencies';
+export function getLocalProjectDependencies(): number[] {
+    const content = localStorage.getItem(keyLocalProjectDependencies);
+    if (!content) return [];
+    try {
+        const dependencies = JSON.parse(content);
+        if (Array.isArray(dependencies) && dependencies.every((item) => typeof item === 'number')) return dependencies;
+    } catch (e) {
+        // conteúdo inválido, ignora e retorna vazio
+    }
+    return [];
+}
+
+export function setLocalProjectDependencies(dependencies: number[]) {
+    if (!dependencies || !dependencies.length) {
+        localStorage.removeItem(keyLocalProjectDependencies);
+        return;
+    }
+    localStorage.setItem(keyLocalProjectDependencies, JSON.stringify(dependencies));
+}
+
 export function isValidProjectName(name: string): boolean {
     if (!name || name.length <= 3) return false;
     const projectNameRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
