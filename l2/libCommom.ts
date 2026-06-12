@@ -207,6 +207,37 @@ export function setLocalProjectDependencies(dependencies: number[]) {
     localStorage.setItem(keyLocalProjectDependencies, JSON.stringify(dependencies));
 }
 
+export async function deleteLocalProject() {
+
+    const filesToDeleteCache: Set<string> = new Set();
+    const keys = Object.keys(mls.stor.files).filter((key) => key.startsWith(`${mls.stor.LOCALPROJECTNUMBER}_`));
+    for (const key of keys) {
+        const storFile = mls.stor.files[key];
+        mls.editor.deleteModels(storFile.project, storFile.shortName, storFile.folder, true, storFile.level);
+        await mls.stor.localStor.setContent(storFile, { contentType: 'string', content: null });
+        const ext = storFile.extension.replace('.ts', '.js');
+        let targetKey = `https://collab.codes/local/_${storFile.project}_${storFile.shortName}${ext}?v=`;
+        if (storFile.folder) targetKey = `https://collab.codes/local/_${storFile.project}_${storFile.folder}/${storFile.shortName}${ext}?v=`;
+        filesToDeleteCache.add(targetKey);
+        delete mls.stor.files[key];
+    }
+
+    const cacheName = 'mls-v2';
+    const cache = await caches.open(cacheName);
+    const keysCache = await cache.keys();
+    for (const request of keysCache) {
+        for (const targetKey of filesToDeleteCache) {
+            if (request.url.includes(targetKey)) {
+                await cache.delete(request);
+            }
+        }
+    }
+
+    deleteLastOpenedFiles(mls.stor.LOCALPROJECTNUMBER);
+    localStorage.removeItem(keyLocalProject);
+    localStorage.removeItem(keyLocalProjectDependencies);
+}
+
 export function isValidProjectName(name: string): boolean {
     if (!name || name.length <= 3) return false;
     const projectNameRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
