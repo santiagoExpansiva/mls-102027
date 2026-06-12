@@ -236,6 +236,17 @@ export async function deleteLocalProject() {
     deleteLastOpenedFiles(mls.stor.LOCALPROJECTNUMBER);
     localStorage.removeItem(keyLocalProject);
     localStorage.removeItem(keyLocalProjectDependencies);
+
+    // Se o projeto local era o último projeto selecionado, limpa para o init voltar ao projeto base
+    const lastProjectDetails = localStorage.getItem(KeyProject);
+    if (lastProjectDetails) {
+        try {
+            const details = JSON.parse(lastProjectDetails);
+            if (details && details.project === mls.stor.LOCALPROJECTNUMBER) localStorage.removeItem(KeyProject);
+        } catch (e) {
+            // conteúdo inválido, ignora
+        }
+    }
 }
 
 export function isValidProjectName(name: string): boolean {
