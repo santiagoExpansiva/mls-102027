@@ -1,5 +1,31 @@
 /// <mls fileReference="_102027_/l2/libNewProject.ts" enhancement="_blank"/>
 
+export interface IProjectType {
+  id: string;
+  name: string;
+  dependencies: number[];
+  agent?: string;
+}
+
+export const projectTypes: IProjectType[] = [
+  {
+    id: 'auraDev',
+    name: 'Aura',
+    dependencies: [102020, 102021, 102027, 102029, 102033, 102034],
+    agent: 'agentNewSolution',
+  },
+  {
+    id: 'landingPage',
+    name: 'Landing Page',
+    dependencies: [102032, 102027],
+  },
+  {
+    id: 'workspace',
+    name: 'Workspace',
+    dependencies: [102027],
+  },
+];
+
 export const template_tsconfig = {
     ext: '.json',
     template: `
