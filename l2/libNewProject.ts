@@ -1,0 +1,963 @@
+/// <mls fileReference="_102027_/l2/libNewProject.ts" enhancement="_blank"/>
+
+export const template_tsconfig = {
+    ext: '.json',
+    template: `
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "ES2020",
+        "esModuleInterop": true,
+        "outDir": "./preBuild/_[project]_/",
+        "rootDir": "./project/_[project]_",
+        "strict": true,
+        "removeComments": false,
+        "noUnusedParameters": false,
+        "skipLibCheck": false,
+        "forceConsistentCasingInFileNames": true,
+        "sourceMap": false,
+        "declaration": false,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": false,
+        "noImplicitAny": false,
+        "strictNullChecks": false,
+        "paths": {
+            "/_[project]_/*": [
+                "./*"
+            ],
+            "/_102027_/*": [
+                "node_modules/mls-102027/*"
+            ]
+        },
+        "lib": [
+            "dom",
+            "ES2022"
+        ]
+    },
+    "include": [
+        "project/_[project]_/**/*",
+        "monaco.d.ts",
+        "mls.d.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.spec.ts",
+        "l2/*.ts"
+    ]
+}
+
+    `
+}
+
+export const template_l5Project = {
+    ext: '.json',
+    template: `
+    {
+        "orgName": "[org]",
+        "plugins": {},
+        "reasons": {},
+        "services": [],
+        "servicesConfigEnabled": false,
+        "designSystems": [],
+        "links": [],
+        "languages": [
+            {
+                "language": "en",
+                "name": "English",
+                "path": "/"
+            }
+        ]
+    }
+
+    `
+}
+
+export const template_package = {
+    ext: '.json',
+    template: `
+    {
+        "name": "[project]",
+        "version": "1.0.0",
+        "description": "",
+        "scripts": {
+            "test": "echo \\"Error: no test specified\\" && exit 1",
+            "buildCI": "node -e \\"require('mls-ci').runCI()\\""
+        },
+        "author": "",
+        "license": "ISC",
+        "dependencies": {
+            "adm-zip": "0.5.16",
+            "less": "^4.2.0",
+            "esbuild": "^0.27.2",
+            "mls-ci": "git+https://github.com/expansiva/mls-ci.git",
+            "mls-102027": "git+https://github.com/expansiva/mls-102027.git",
+            "node-fetch": "^2.7.0",
+            "typescript": "^5.5.3"
+        }
+    }
+    `
+}
+
+
+export const template_build = {
+    ext: '.yml',
+    template: `
+name: Build TypeScript
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'l1/**'
+      - 'l2/**'
+      - 'l3/**'
+      - 'l4/**'
+      - 'l5/**'
+      - 'l6/**'
+      - 'l7/**'
+      - 'README.md'
+      - 'readme.md'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'  # ou a versão do Node.js que você está usando
+
+    - name: Fix package name
+      run: |
+        if [ -f packagelib.json ]; then
+          mv packagelib.json package.json
+        fi
+
+    - name: Fix tsconfig name
+      run: |
+        if [ -f tsconfiglib.json ]; then
+          mv tsconfiglib.json tsconfig.json
+        fi
+        
+    - name: Install dependencies
+      run: npm install
+
+    - name: Compile CI
+      run: npm run buildCI
+      env:
+          COLLAB_PROJECT: [project]
+          COLLAB_REPO: "mls-[project]"
+          COLLAB_OWNER: "mls"
+          COLLAB_BRANCH: "main"
+          COLLAB_DRIVER: "GitHub"
+          COLLAB_TOKEN: \${{ vars.COLLAB_TOKEN }}
+          
+    - name: Commit compiled files
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add -f obj
+        git commit -m "Compile TypeScript files"
+      env:
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push changes (with friendly diff on failure)
+      run: |
+        git fetch origin main
+        if ! git push origin main; then
+          echo "Push failed. The remote repository contains changes you don't have locally."
+          echo "Files that differ between your HEAD and origin/main:"
+          git diff --name-only HEAD origin/main
+          exit 1
+        fi
+      env:
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+    `
+}
+
+export const template_l2Project = {
+    ext: '.ts',
+    template: `
+/// <mls fileReference="_[project]_/l2/project.ts" enhancement="_100554_enhancementLit" />
+
+export const projectConfig = {
+    masterFrontEnd: {
+        build: '',
+        start: '',
+        liveView: '',
+    },
+    masterBackEnd: {
+        build: '',
+        start: '',
+        serverView: ''
+    },
+    modules: []
+}
+`
+}
+
+export const template_coreIndex = {
+    ext: '.ts',
+    template: `
+    /// <mls fileReference="_[project]_/l2/pluginCollabCoreIndex.ts" enhancement="_100554_enhancementLit" />
+
+import { PluginBaseIndex } from '/_100554_/l2/pluginBaseIndex.js';
+
+export class PluginCollabCoreIndex extends PluginBaseIndex {
+
+    public getMenus(): mls.plugin.MenuAction[] {
+
+        return [
+            {
+                category: 'Services',
+                scope: ['l7ServicesRight', 'l6ServicesRight', 'l5ServicesRight', 'l4ServicesRight', 'l3ServicesRight', 'l2ServicesRight'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_servicePreview'
+            },
+            {
+                category: 'Services',
+                scope: ['l1ServicesRight'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_servicePreviewL1'
+            },
+            {
+                category: 'Services',
+                scope: ['l7ServicesRight', 'l6ServicesRight', 'l5ServicesRight', 'l4ServicesRight', 'l3ServicesRight', 'l2ServicesRight', 'l1ServicesRight', 'l0ServicesRight'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_serviceDetail'
+            },
+            // {
+            //     category: 'Services',
+            //     scope: ['l7ServicesRight', 'l6ServicesRight', 'l5ServicesRight', 'l4ServicesRight', 'l3ServicesRight', 'l2ServicesRight', 'l1ServicesRight'],
+            //     priority: 3,
+            //     auth: ['*'],
+            //     widget: '_100554_serviceAim'
+            // },
+
+            {
+                category: 'Services',
+                scope: ['l7ServicesRight', 'l6ServicesRight', 'l5ServicesRight', 'l4ServicesRight', 'l3ServicesRight', 'l2ServicesRight', 'l1ServicesRight'],
+                priority: 3,
+                auth: ['*'],
+                widget: '_100554_serviceCollabMessages'
+            },
+            {
+                category: 'Services',
+                scope: ['l6ServicesLeft'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_serviceExploreProjects'
+            },
+            {
+                category: 'Services',
+                scope: ['l6ServicesLeft'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_serviceDashboard'
+            },
+            {
+                category: 'Services',
+                scope: ['l5ServicesLeft', 'l3ServicesLeft', 'l2ServicesLeft', 'l2ServicesRight', 'l1ServicesLeft'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_serviceProject'
+            },
+            {
+                category: 'Services',
+                scope: ['l5ServicesLeft'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_serviceWorkspace'
+            },
+            {
+                category: 'Services',
+                scope: ['l5ServicesLeft'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_servicePanel'
+            },
+            {
+                category: 'Services',
+                scope: ['l5ServicesLeft'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_serviceSave'
+            },
+            {
+                category: 'Services',
+                scope: ['l4ServicesLeft'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_serviceProduct'
+            },
+            {
+                category: 'Services',
+                scope: ['l3ServicesLeft'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_servicePage'
+            },
+            {
+                category: 'Services',
+                scope: ['l2ServicesLeft', 'l2ServicesRight'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_serviceSource'
+            },
+            {
+                category: 'Services',
+                scope: ['l2ServicesLeft', 'l2ServicesRight', 'l5ServicesRight'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_serviceHistories'
+            },
+            {
+                category: 'Services',
+                scope: ['l0ServicesLeft'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_serviceUser'
+            },
+            {
+                category: 'Services',
+                scope: ['l1ServicesLeft'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_serviceSourceL1'
+            },
+
+            {
+                category: 'Components',
+                scope: ['l5Explore'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginExploreList'
+            },
+
+            {
+                category: 'Stories',
+                scope: ['l5Explore'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginExploreStories'
+            },
+
+            {
+                category: 'Stories',
+                scope: ['l3PageNavigation'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginPageNavigation'
+            },
+            {
+                category: 'Stories',
+                scope: ['l3PageProperties'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginPageProperties'
+            },
+            {
+                category: 'Linter',
+                scope: ['l3PageAI'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginPageAIVerify'
+            },
+            {
+                category: 'Results',
+                scope: ['l2PreviewResults'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginPreviewResultJs'
+            },
+
+            {
+                category: 'Background',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleBackground'
+            },
+            {
+                category: 'Border',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleBorder'
+            },
+            {
+                category: 'Clippath',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleClippath'
+            },
+            {
+                category: 'Text Shadow',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleTextShadow'
+            },
+            {
+                category: 'Tokens',
+                scope: ['l2StyleHelper'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginStyleTokens'
+            },
+
+            {
+                category: 'Transform',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleTransform'
+            },
+
+            {
+                category: 'Filter',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleFilter'
+            },
+
+            {
+                category: 'Columns',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleColumn'
+            },
+
+            {
+                category: 'Margin',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleMargin'
+            },
+
+            {
+                category: 'Padding',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStylePadding'
+            },
+            {
+                category: 'Flex',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleFlex'
+            },
+            {
+                category: 'Cursor',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleCursor'
+            },
+            {
+                category: 'Box Shadow',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginStyleBoxShadow'
+            },
+            {
+                category: 'Pseudo',
+                scope: ['l2StyleHelper'],
+                priority: 2,
+                auth: ['*'],
+                widget: '_100554_pluginLessPseudo'
+            },
+            {
+                category: 'Details',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['admin'],
+                widget: '_100554_pluginProjectUsage'
+            },
+            {
+                category: 'Details',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['admin'],
+                widget: '_100554_pluginProjectConfig'
+            },
+            {
+                category: 'Details',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['admin'],
+                widget: '_100554_pluginProjectInfo'
+            },
+            {
+                category: 'About',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['admin'],
+                widget: '_100554_pluginProjectReadMe'
+            },
+            {
+                category: 'Helpers',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginProjectFindFiles'
+            },
+            {
+                category: 'Helpers',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginPresenterRecorder'
+            },
+            {
+                category: 'Helpers',
+                scope: ['l5Project'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginProjectRunTest'
+            },
+            {
+                category: 'Profile',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginCollabLogin'
+            },
+            {
+                category: 'System',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginSystemUser'
+            },
+            {
+                category: 'System',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginSystemLanguage'
+            },
+
+            {
+                category: 'System',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginSystemTheme'
+            },
+            {
+                category: 'System',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginSystemNotification'
+            },
+            {
+                category: 'System',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginSystemPrivacyPolicy'
+            },
+            {
+                category: 'System',
+                scope: ['l5UserSettings'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginSystemTermsOfService'
+            },
+            {
+                category: 'Page',
+                scope: ['l2NewFile'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginNewFilePage'
+            },
+            {
+                category: 'Service',
+                scope: ['l2NewFile'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginNewFileService'
+            },
+            {
+                category: 'Component',
+                scope: ['l2NewFile'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginNewFileWebComponent'
+            },
+            {
+                category: 'Blank',
+                scope: ['l2NewFile'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginNewFileBlank'
+            },
+            {
+                category: 'Preview',
+                scope: ['l3PreviewAttr'],
+                priority: 1,
+                auth: ['*'],
+                widget: '_100554_pluginAttrDataset'
+            },
+
+        ];
+    }
+
+
+
+
+    public getHooks(): mls.plugin.HookAction[] {
+        return [];
+    }
+
+    public getServices(): mls.plugin.ServiceAction[] {
+        return [];
+    }
+
+}
+
+export default new PluginCollabCoreIndex();
+    `
+}
+
+export const template_ds = {
+    ext: '.ts',
+    template: `
+/// <mls fileReference="_[project]_/l2/designSystem.ts" enhancement="_102027_/l2/enhancementLit" />
+
+import { IDesignSystemTokens } from '/_102027_/l2/designSystemBase.js';
+
+export const tokens: IDesignSystemTokens[] = [
+    {
+        themeName: "Default",
+        description: "Tema padrão do projeto",
+        color: {
+            "text-primary-color-lighter": "#535353",
+            "text-primary-color-lighter-hover": "#5f5f5f",
+            "text-primary-color-lighter-focus": "#4a4a4a",
+            "text-primary-color-lighter-disabled": "#696969",
+            "text-primary-color": "#403f3f",
+            "text-primary-color-hover": "#4b4a4a",
+            "text-primary-color-focus": "#353434",
+            "text-primary-color-disabled": "#525151",
+            "text-primary-color-darker": "#000000",
+            "text-primary-color-darker-hover": "#1a1a1a",
+            "text-primary-color-darker-focus": "#0d0d0d",
+            "text-primary-color-darker-disabled": "#262626",
+            "text-secondary-color-lighter": "#408EC8",
+            "text-secondary-color-lighter-hover": "#4a9adb",
+            "text-secondary-color-lighter-focus": "#377bb0",
+            "text-secondary-color-lighter-disabled": "#629fd2",
+            "text-secondary-color": "#1C91CD",
+            "text-secondary-color-hover": "#2a9edb",
+            "text-secondary-color-focus": "#1786b7",
+            "text-secondary-color-disabled": "#55b4e1",
+            "text-secondary-color-darker": "#0F6FA9",
+            "text-secondary-color-darker-hover": "#1b7bb5",
+            "text-secondary-color-darker-focus": "#0c6495",
+            "text-secondary-color-darker-disabled": "#3a9ec1",
+            "bg-primary-color-lighter": "#ffffff",
+            "bg-primary-color-lighter-hover": "#f2f2f2",
+            "bg-primary-color-lighter-focus": "#e6e6e6",
+            "bg-primary-color-lighter-disabled": "#d9d9d9",
+            "bg-primary-color": "#ffffff",
+            "bg-primary-color-hover": "#f2f2f2",
+            "bg-primary-color-focus": "#e6e6e6",
+            "bg-primary-color-disabled": "#d9d9d9",
+            "bg-primary-color-darker": "#fafafa",
+            "bg-primary-color-darker-hover": "#f5f5f5",
+            "bg-primary-color-darker-focus": "#eeeeee",
+            "bg-primary-color-darker-disabled": "#e0e0e0",
+            "bg-secondary-color-lighter": "#F9F9F9",
+            "bg-secondary-color-lighter-hover": "#f4f4f4",
+            "bg-secondary-color-lighter-focus": "#efefef",
+            "bg-secondary-color-lighter-disabled": "#eaeaea",
+            "bg-secondary-color": "#E6E6E6",
+            "bg-secondary-color-hover": "#d9d9d9",
+            "bg-secondary-color-focus": "#cccccc",
+            "bg-secondary-color-disabled": "#bfbfbf",
+            "bg-secondary-color-darker": "#C0C0C0",
+            "bg-secondary-color-darker-hover": "#b3b3b3",
+            "bg-secondary-color-darker-focus": "#a6a6a6",
+            "bg-secondary-color-darker-disabled": "#999999",
+            "grey-color-lighter": "#F9FAFB",
+            "grey-color-light": "#F2F2F2",
+            "grey-color": "#E6E6E6",
+            "grey-color-dark": "#D3D3D3",
+            "grey-color-darker": "#C0C0C0",
+            "error-color": "#FF4D4F",
+            "error-color-hover": "#ff6666",
+            "error-color-focus": "#e63e3e",
+            "error-color-disabled": "#ff9999",
+            "success-color": "#52C41A",
+            "success-color-hover": "#66d93f",
+            "success-color-focus": "#4ca610",
+            "success-color-disabled": "#8cd78e",
+            "warning-color": "#FAAD14",
+            "warning-color-hover": "#fbbd34",
+            "warning-color-focus": "#e09a0e",
+            "warning-color-disabled": "#fdd55e",
+            "info-color": "#0a6dc9",
+            "info-color-hover": "#1b7edb",
+            "info-color-focus": "#006ab3",
+            "info-color-disabled": "#66a8e1",
+            "active-color": "#1890FF",
+            "active-color-hover": "#1a99ff",
+            "active-color-focus": "#0e80cc",
+            "active-color-disabled": "#66b3ff",
+            "link-color": "#1890FF",
+            "link-color-hover": "#1a99ff",
+            "link-color-focus": "#0e80cc",
+            "link-color-disabled": "#66b3ff",
+            "_dark-text-primary-color-lighter": "#FFFFFF",
+            "_dark-text-primary-color-lighter-hover": "#f2f2f2",
+            "_dark-text-primary-color-lighter-focus": "#e6e6e6",
+            "_dark-text-primary-color-lighter-disabled": "#d9d9d9",
+            "_dark-text-primary-color": "#e6edf3",
+            "_dark-text-primary-color-hover": "#d1d9e4",
+            "_dark-text-primary-color-focus": "#c3cfd8",
+            "_dark-text-primary-color-disabled": "#b0b8c4",
+            "_dark-text-primary-color-darker": "#8d96a0",
+            "_dark-text-primary-color-darker-hover": "#a1aab0",
+            "_dark-text-primary-color-darker-focus": "#7a828a",
+            "_dark-text-primary-color-darker-disabled": "#b1b7bd",
+            "_dark-text-secondary-color-lighter": "#5294c7",
+            "_dark-text-secondary-color-lighter-hover": "#63a2d8",
+            "_dark-text-secondary-color-lighter-focus": "#4787b2",
+            "_dark-text-secondary-color-lighter-disabled": "#78b0e0",
+            "_dark-text-secondary-color": "#56a8d1",
+            "_dark-text-secondary-color-hover": "#68b8e0",
+            "_dark-text-secondary-color-focus": "#4b9cc4",
+            "_dark-text-secondary-color-disabled": "#80c4e5",
+            "_dark-text-secondary-color-darker": "#bddef3",
+            "_dark-text-secondary-color-darker-hover": "#c7e3f5",
+            "_dark-text-secondary-color-darker-focus": "#a3c8e5",
+            "_dark-text-secondary-color-darker-disabled": "#d3e9f7",
+            "_dark-bg-primary-color-lighter": "#666666",
+            "_dark-bg-primary-color-lighter-hover": "#7a7a7a",
+            "_dark-bg-primary-color-lighter-focus": "#5c5c5c",
+            "_dark-bg-primary-color-lighter-disabled": "#808080",
+            "_dark-bg-primary-color": "#0d1117",
+            "_dark-bg-primary-color-hover": "#1a1f24",
+            "_dark-bg-primary-color-focus": "#0a0e13",
+            "_dark-bg-primary-color-disabled": "#2b3036",
+            "_dark-bg-primary-color-darker": "#262626",
+            "_dark-bg-primary-color-darker-hover": "#333333",
+            "_dark-bg-primary-color-darker-focus": "#1f1f1f",
+            "_dark-bg-primary-color-darker-disabled": "#404040",
+            "_dark-bg-secondary-color-lighter": "#636363",
+            "_dark-bg-secondary-color-lighter-hover": "#757575",
+            "_dark-bg-secondary-color-lighter-focus": "#4e4e4e",
+            "_dark-bg-secondary-color-lighter-disabled": "#808080",
+            "_dark-bg-secondary-color": "#161b22",
+            "_dark-bg-secondary-color-hover": "#1f2329",
+            "_dark-bg-secondary-color-focus": "#0f1418",
+            "_dark-bg-secondary-color-disabled": "#2c3238",
+            "_dark-bg-secondary-color-darker": "#4b3f3f",
+            "_dark-bg-secondary-color-darker-hover": "#5b4f4f",
+            "_dark-bg-secondary-color-darker-focus": "#3f2f2f",
+            "_dark-bg-secondary-color-darker-disabled": "#6a5c5c",
+            "_dark-grey-color-lighter": "#2B2B2B",
+            "_dark-grey-color-light": "#414141",
+            "_dark-grey-color": "#575757",
+            "_dark-grey-color-dark": "#6D6D6D",
+            "_dark-grey-color-darker": "#969494",
+            "_dark-error-color": "#f9676a",
+            "_dark-error-color-hover": "#ff7b7f",
+            "_dark-error-color-focus": "#e5565e",
+            "_dark-error-color-disabled": "#ff9b9e",
+            "_dark-success-color": "#63d42b",
+            "_dark-success-color-hover": "#75d93d",
+            "_dark-success-color-focus": "#55b825",
+            "_dark-success-color-disabled": "#8ade5f",
+            "_dark-warning-color": "#eead2b",
+            "_dark-warning-color-hover": "#f2b73d",
+            "_dark-warning-color-focus": "#d69c1f",
+            "_dark-warning-color-disabled": "#f5cd5c",
+            "_dark-info-color": "#0b81ef",
+            "_dark-info-color-hover": "#1a95f6",
+            "_dark-info-color-focus": "#0073d8",
+            "_dark-info-color-disabled": "#66b3ef",
+            "_dark-active-color": "#0b81ef",
+            "_dark-active-color-hover": "#1a95f6",
+            "_dark-active-color-focus": "#0073d8",
+            "_dark-active-color-disabled": "#66b3ef",
+            "_dark-link-color": "#0b81ef",
+            "_dark-link-color-hover": "#1a95f6",
+            "_dark-link-color-focus": "#0073d8",
+            "_dark-link-color-disabled": "#66b3ef"
+        },
+        global: {
+            "breakpoint-small": "544px",
+            "breakpoint-medium": "768px",
+            "breakpoint-large": "1012px",
+            "transition-slow": "0.2s",
+            "transition-normal": "0.3s",
+            "transition-fast": "0.5s",
+            "space-base-unit": "0.25rem",
+            "space-8": "calc(@space-base-unit * 2)",
+            "space-16": "calc(@space-base-unit * 4)",
+            "space-24": "calc(@space-base-unit * 6)",
+            "space-32": "calc(@space-base-unit * 8)",
+            "space-40": "calc(@space-base-unit * 10)",
+            "space-48": "calc(@space-base-unit * 12)",
+            "space-64": "calc(@space-base-unit * 16)"
+        },
+        typography: {
+            "font-base-unit": ".25rem",
+            "font-family-primary": "'Charlie Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
+            "font-family-secondary": "serif",
+            "font-size-12": "calc(@font-base-unit * 3)",
+            "font-size-16": "calc(@font-base-unit * 4)",
+            "font-size-20": "calc(@font-base-unit * 5)",
+            "font-size-24": "calc(@font-base-unit * 6)",
+            "font-size-40": "calc(@font-base-unit * 10)",
+            "font-size-48": "calc(@font-base-unit * 12)",
+            "font-size-64": "calc(@font-base-unit * 16)",
+            "line-height-base-unit": "1",
+            "line-height-small": "calc(@line-height-base-unit * 1.1)",
+            "line-height-medium": "calc(@line-height-base-unit * 1.3)",
+            "line-height-large": "calc(@line-height-base-unit * 1.5)",
+            "font-weight-lighter": "100",
+            "font-weight-light": "200",
+            "font-weight-normal": "400",
+            "font-weight-bold": "700",
+            "font-weight-bolder": "900"
+        },
+    },
+    {
+        themeName: "Natal",
+        description: "Tema utilizado para o natal",
+        color: {
+            "text-primary-color-lighter": "#D32F2F",
+            "text-primary-color-lighter-hover": "#E53935",
+            "text-primary-color-lighter-focus": "#C62828",
+            "text-primary-color-lighter-disabled": "#B71C1C",
+            "text-primary-color": "#FF0000",
+            "text-primary-color-hover": "#FF4D4D",
+            "text-primary-color-focus": "#E60000",
+            "text-primary-color-disabled": "#FF9999",
+            "text-primary-color-darker": "#8B0000",
+            "text-primary-color-darker-hover": "#9B111E",
+            "text-primary-color-darker-focus": "#7A0000",
+            "text-primary-color-darker-disabled": "#660000",
+            "text-secondary-color-lighter": "#4CAF50",
+            "text-secondary-color-lighter-hover": "#66BB6A",
+            "text-secondary-color-lighter-focus": "#43A047",
+            "text-secondary-color-lighter-disabled": "#2E7D32",
+            "text-secondary-color": "#008000",
+            "text-secondary-color-hover": "#009933",
+            "text-secondary-color-focus": "#006600",
+            "text-secondary-color-disabled": "#339966",
+            "text-secondary-color-darker": "#006400",
+            "text-secondary-color-darker-hover": "#007700",
+            "text-secondary-color-darker-focus": "#004d00",
+            "text-secondary-color-darker-disabled": "#003300",
+            "bg-primary-color-lighter": "#FFF5E1",
+            "bg-primary-color-lighter-hover": "#FFEDD5",
+            "bg-primary-color-lighter-focus": "#FFE4C4",
+            "bg-primary-color-lighter-disabled": "#FFDAB9",
+            "bg-primary-color": "#FFFFFF",
+            "bg-primary-color-hover": "#F8F8F8",
+            "bg-primary-color-focus": "#F0F0F0",
+            "bg-primary-color-disabled": "#E0E0E0",
+            "bg-primary-color-darker": "#F5F5DC",
+            "bg-primary-color-darker-hover": "#EDE5C4",
+            "bg-primary-color-darker-focus": "#DCD0A4",
+            "bg-primary-color-darker-disabled": "#CDBE90",
+            "bg-secondary-color-lighter": "#C5E1A5",
+            "bg-secondary-color-lighter-hover": "#AED581",
+            "bg-secondary-color-lighter-focus": "#9CCC65",
+            "bg-secondary-color-lighter-disabled": "#8BC34A",
+            "bg-secondary-color": "#4CAF50",
+            "bg-secondary-color-hover": "#43A047",
+            "bg-secondary-color-focus": "#388E3C",
+            "bg-secondary-color-disabled": "#2E7D32",
+            "bg-secondary-color-darker": "#1B5E20",
+            "bg-secondary-color-darker-hover": "#2E7D32",
+            "bg-secondary-color-darker-focus": "#388E3C",
+            "bg-secondary-color-darker-disabled": "#4CAF50",
+            "error-color": "#D32F2F",
+            "error-color-hover": "#E57373",
+            "error-color-focus": "#C62828",
+            "error-color-disabled": "#B71C1C",
+            "success-color": "#388E3C",
+            "success-color-hover": "#4CAF50",
+            "success-color-focus": "#2E7D32",
+            "success-color-disabled": "#1B5E20",
+            "warning-color": "#FFD700",
+            "warning-color-hover": "#FFEA00",
+            "warning-color-focus": "#FFC107",
+            "warning-color-disabled": "#FFEB3B",
+            "info-color": "#1565C0",
+            "info-color-hover": "#1976D2",
+            "info-color-focus": "#0D47A1",
+            "info-color-disabled": "#64B5F6",
+            "active-color": "#D32F2F",
+            "active-color-hover": "#E53935",
+            "active-color-focus": "#C62828",
+            "active-color-disabled": "#B71C1C",
+            "link-color": "#B22222",
+            "link-color-hover": "#C71585",
+            "link-color-focus": "#8B0000",
+            "link-color-disabled": "#DC143C"
+        },
+        global: {
+            "breakpoint-small": "544px",
+            "breakpoint-medium": "768px",
+            "breakpoint-large": "1012px",
+            "transition-slow": "0.2s",
+            "transition-normal": "0.3s",
+            "transition-fast": "0.5s",
+            "space-base-unit": "0.25rem",
+            "space-8": "calc(@space-base-unit * 2)",
+            "space-16": "calc(@space-base-unit * 4)",
+            "space-24": "calc(@space-base-unit * 6)",
+            "space-32": "calc(@space-base-unit * 8)",
+            "space-40": "calc(@space-base-unit * 10)",
+            "space-48": "calc(@space-base-unit * 12)",
+            "space-64": "calc(@space-base-unit * 16)"
+        },
+        typography: {
+            "font-base-unit": ".25rem",
+            "font-family-primary": "'Charlie Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif",
+            "font-family-secondary": "serif",
+            "font-size-12": "calc(@font-base-unit * 3)",
+            "font-size-16": "calc(@font-base-unit * 4)",
+            "font-size-20": "calc(@font-base-unit * 5)",
+            "font-size-24": "calc(@font-base-unit * 6)",
+            "font-size-40": "calc(@font-base-unit * 10)",
+            "font-size-48": "calc(@font-base-unit * 12)",
+            "font-size-64": "calc(@font-base-unit * 16)",
+            "line-height-base-unit": "1",
+            "line-height-small": "calc(@line-height-base-unit * 1.1)",
+            "line-height-medium": "calc(@line-height-base-unit * 1.3)",
+            "line-height-large": "calc(@line-height-base-unit * 1.5)",
+            "font-weight-lighter": "100",
+            "font-weight-light": "200",
+            "font-weight-normal": "400",
+            "font-weight-bold": "700",
+            "font-weight-bolder": "900"
+        },
+    }
+]
+    `
+}
