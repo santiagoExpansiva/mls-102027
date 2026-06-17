@@ -38,7 +38,7 @@ export async function createStorFile(req: IReqCreateStorFile, needCreateModel: b
 
     await mls.stor.localStor.setContent(file, fileInfo);
 
-    if (needCreateModel) await createModel(file, needCompile, awaitCompile);
+    if (needCreateModel && ['.ts', '.defs.ts', '.test.ts', '.html'].includes(file.extension)) await createModel(file, needCompile, awaitCompile);
 
     // file.getModel = async () => _getModel(file);
 
