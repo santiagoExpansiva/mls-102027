@@ -6,8 +6,6 @@ import {
   parseDefinitionFromContent,
   parsePipelineFromContent,
   parseMlsPath,
-  readProjectJson,
-  toMlsPath,
   loadModuleByBuild,
   loadRulesForIds,
   getDtsForFile,
@@ -16,8 +14,6 @@ import type {
   PipelineItem,
   L1FileType,
   L2FileType,
-  ProjectJson,
-  VisualStyle,
 } from '/_102027_/l2/agentMaterializeSolution/artifactsMaterialize.js';
 
 declare const mls: any;
@@ -31,7 +27,7 @@ export interface GenContext {
   skillSections: string[];    // content blocks for the system prompt
   contextSections: string[];  // def-context + dep blocks for the human prompt
   resolvedRules: Record<string, unknown>[];
-  visualStyle?: VisualStyle;
+  visualStyle?: Record<string, unknown>;
 }
 
 // ─── Import extractor ────────────────────────────────────────────────────────
@@ -88,16 +84,10 @@ export async function buildGenContext(defPath: string): Promise<GenContext> {
   const pipelineItem = pipeline[0];
   const fileType = resolveFileType(pipelineItem.type);
 
-  // Project data
-  const projectJson = await readProjectJson();
-  const moduleExports = await loadModuleExports(project, moduleName);
-
-  // Skills
-  const genomeKey = folder.slice(moduleName.length + 1); // e.g. "web/desktop/page11"
-  const skillPaths = resolveSkillPaths(fileType, moduleExports, projectJson, genomeKey);
+  // Skills — read directly from pipeline item
   const skillSections: string[] = [];
   const defContextSections: string[] = [];
-  for (const sp of skillPaths) {
+  for (const sp of pipelineItem.skills ?? []) {
     const clean = sp.startsWith('/') ? sp.slice(1) : sp;
     if (/^_\d+_$/.test(clean)) {
       const content = await loadProjectDefinition(clean);
@@ -112,15 +102,13 @@ ${content}`);
     }
   }
 
-  // Visual style (page only)
-  const visualStyle = fileType === 'page' && projectJson
-    ? projectJson.modules.find(m => m.moduleName === moduleName)?.module?.visualStyle
-    : undefined;
+  // Visual style — embedded in pipeline item for pages
+  const visualStyle = pipelineItem.visualStyle;
 
   // Business rules
   let resolvedRules: Record<string, unknown>[] = [];
   if (pipelineItem.rulesApplied?.length) {
-    resolvedRules = await loadRulesForIds(project, moduleName, pipelineItem.rulesApplied);
+    resolvedRules = await loadRulesForIds(project, moduleName, pipelineItem.rulesApplied, pipelineItem.rulesPath);
   }
 
   // dependsFiles — three modes based on path suffix:
@@ -193,62 +181,6 @@ export function resolveFileType(itemType: string): L1FileType | L2FileType {
     l2_page:             'page',
   };
   return (map[itemType] ?? 'layer1') as L1FileType | L2FileType;
-}
-
-// ─── Skill resolution ─────────────────────────────────────────────────────────
-
-const NEEDS_DEFINITION: string[] = ['layer1', 'layer4'];
-
-function resolveSkillPaths(
-  fileType: L1FileType | L2FileType,
-  moduleExports: any,
-  projectJson: ProjectJson | null,
-  genomeKey?: string,
-): string[] {
-  if (!moduleExports) return [];
-
-  if (fileType === 'contract') return moduleExports.skills?.contract?.skillPath ?? [];
-
-  if (fileType === 'shared') {
-    const p = moduleExports.shared?.web?.sharedSkill as string | undefined;
-    return p ? [p] : [];
-  }
-
-  if (fileType === 'page') {
-    const genome = moduleExports.moduleGenome?.[genomeKey ?? 'web/desktop/page11'];
-    if (!genome) return [];
-    const paths: string[] = [];
-    if (genome.layout && projectJson) {
-      const entry = Object.values(projectJson.layouts ?? {}).find(l => l.name === genome.layout);
-      if (entry?.skill) paths.push(entry.skill);
-    }
-    if (genome.designSystem && projectJson) {
-      const entry = Object.values(projectJson.designSystems ?? {}).find(d => d.name === genome.designSystem);
-      if (entry?.skill) paths.push(entry.skill);
-    }
-    return paths;
-  }
-
-  // L1 types: layer1, layer2, layer3, layer4
-  const paths: string[] = [...(moduleExports.skills?.[fileType]?.skillPath ?? [])];
-  if (NEEDS_DEFINITION.includes(fileType)) {
-    const defPaths: string[] = moduleExports.skills?.definition?.skillPath ?? [];
-    paths.push(...defPaths);
-  }
-  return paths;
-}
-
-// ─── Module loader ────────────────────────────────────────────────────────────
-
-async function loadModuleExports(project: number, moduleName: string): Promise<any> {
-  const path = toMlsPath(project, 2, moduleName, 'module', '.ts');
-  const f = mls.stor.convertFileReferenceToFile(path);
-  if (!f) return null;
-  try {
-    return await collabImport(f);
-  } catch {
-    return await loadModuleByBuild(path);
-  }
 }
 
 // ─── Skill content loaders ────────────────────────────────────────────────────

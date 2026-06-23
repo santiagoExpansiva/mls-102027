@@ -12,9 +12,27 @@ export interface PipelineItem {
   defPath: string;      // _102043_/l1/cafeFlow/layer_4_entities/pedidoEntity.defs.ts
   dependsFiles: string[]; // already-generated .ts files the executor needs as context
   dependsOn: string[];    // pipeline item IDs that must complete before this one
-  rulesApplied?: string[]; // business rules gathered from the definition (if any)
+  skills: string[];       // MLS paths to skill files (same format as dependsFiles)
+  afterSaveBackEnd?: string;  // "mlsPath?fnName" called after saving L1 files
+  afterSaveFrontEnd?: string; // "mlsPath?fnName" called after saving L2 files
+  visualStyle?: Record<string, unknown>; // resolved from projectJson, for pages only
+  rulesPath?: string;     // MLS path to rules file (e.g. "_P_/l5/module/rules.defs.ts")
+  rulesApplied?: string[]; // rule IDs to filter from rulesPath
   agent: string;
 }
+
+// ─── After-save callbacks ─────────────────────────────────────────────────────
+
+export interface AfterSaveCtx {
+  type: string;
+  project: number;
+  moduleName: string;
+  code: string;
+  outputPath: string;
+  shortName: string;
+}
+
+export type AfterSaveCallback = (ctx: AfterSaveCtx) => Promise<void>;
 
 // ─── L1 layer folders scanned for existing .defs.ts ──────────────────────────
 
@@ -534,9 +552,10 @@ export async function loadRulesForIds(
   project: number,
   moduleName: string,
   ruleIds: string[],
+  rulesPath?: string,
 ): Promise<Record<string, unknown>[]> {
   if (!ruleIds.length) return [];
-  const path = toMlsPath(project, 5, moduleName, 'rules', '.defs.ts');
+  const path = rulesPath ?? toMlsPath(project, 5, moduleName, 'rules', '.defs.ts');
   const content = await getContentByMlsPath(path);
   if (!content) return [];
   try {

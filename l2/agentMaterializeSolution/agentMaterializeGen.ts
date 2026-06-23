@@ -1,25 +1,16 @@
 /// <mls fileReference="_102027_/l2/agentMaterializeSolution/agentMaterializeGen.ts" enhancement="_102027_/l2/enhancementAgent"/>
  
 import { IAgentAsync, IAgentMeta } from '/_102027_/l2/aiAgentBase.js';
-import { convertFileNameToTag } from '/_102027_/l2/utils.js';
 import {
   getContentByMlsPath,
   parsePipelineFromContent,
   parseMlsPath,
   saveGeneratedTs,
-  saveGeneratedHtml,
   extractToolCallArgs,
   compileAndGetErrors,
+  loadModuleByBuild,
 } from '/_102027_/l2/agentMaterializeSolution/artifactsMaterialize.js';
-import {
-  buildGenContext,
-  resolveFileType,
-} from '/_102027_/l2/agentMaterializeSolution/contextMaterialize.js';
-import {
-  registerController,
-  registerLayer1,
-  registerPage,
-} from '/_102027_/l2/agentMaterializeSolution/registerMaterialize.js';
+import { buildGenContext } from '/_102027_/l2/agentMaterializeSolution/contextMaterialize.js';
 import type { GenStepArgs } from '/_102027_/l2/agentMaterializeSolution/artifactsMaterialize.js';
 
 declare const mls: any;
@@ -112,8 +103,6 @@ async function afterPromptStep(
     return [mkStatus(context, parentStep, step, hookSequential, 'failed', 'pipeline not found in defs')];
   }
 
-  const fileType = resolveFileType(pipelineItem.type);
-
   const raw = step.interaction?.payload?.[0] as any;
   const out = extractToolCallArgs<ToolOutput>(raw, TOOL_NAME);
 
@@ -135,18 +124,25 @@ async function afterPromptStep(
 
   if (ok) {
     try {
-      const moduleName = parsed.folder.split('/')[0];
-      if (fileType === 'layer1') {
-        await registerLayer1(parsed.project, moduleName, code, pipelineItem.outputPath);
-      } else if (fileType === 'layer2') {
-        await registerController(parsed.project, moduleName, code);
-      } else if (fileType === 'page') {
-        const tag = convertFileNameToTag({ shortName: parsed.shortName, project: parsed.project, folder: parsed.folder });
-        await saveGeneratedHtml(parsed.project, parsed.level, parsed.folder, parsed.shortName, `<${tag}></${tag}>`);
-        await registerPage(parsed.project, moduleName, parsed.shortName, pipelineItem.outputPath);
+      const callbackRef = pipelineItem.afterSaveBackEnd ?? pipelineItem.afterSaveFrontEnd;
+      if (callbackRef) {
+        const sepIdx = callbackRef.indexOf('?');
+        const modPath = sepIdx !== -1 ? callbackRef.slice(0, sepIdx) : callbackRef;
+        const fnName  = sepIdx !== -1 ? callbackRef.slice(sepIdx + 1) : '';
+        const mod = await loadModuleByBuild(modPath);
+        if (mod && fnName && typeof mod[fnName] === 'function') {
+          await mod[fnName]({
+            type: pipelineItem.type,
+            project: parsed.project,
+            moduleName: parsed.folder.split('/')[0],
+            code,
+            outputPath: pipelineItem.outputPath,
+            shortName: parsed.shortName,
+          });
+        }
       }
     } catch (err) {
-      console.warn('[agentMaterializeGen] post-generation registration failed', err);
+      console.warn('[agentMaterializeGen] post-generation callback failed', err);
     }
   }
 
