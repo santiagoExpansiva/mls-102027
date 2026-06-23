@@ -12,6 +12,7 @@ import {
 } from '/_102027_/l2/agentMaterializeSolution/artifactsMaterialize.js';
 import { buildGenContext } from '/_102027_/l2/agentMaterializeSolution/contextMaterialize.js';
 import type { GenStepArgs } from '/_102027_/l2/agentMaterializeSolution/artifactsMaterialize.js';
+import { collabImport } from '/_102027_/l2/collabImport.js';
 
 declare const mls: any;
 
@@ -129,7 +130,7 @@ async function afterPromptStep(
         const sepIdx = callbackRef.indexOf('?');
         const modPath = sepIdx !== -1 ? callbackRef.slice(0, sepIdx) : callbackRef;
         const fnName  = sepIdx !== -1 ? callbackRef.slice(sepIdx + 1) : '';
-        const mod = await loadModuleByBuild(modPath);
+        const mod = await getModule(modPath);
         if (mod && fnName && typeof mod[fnName] === 'function') {
           await mod[fnName]({
             type: pipelineItem.type,
@@ -180,6 +181,18 @@ async function afterPromptStep(
     ok ? undefined : 'saveGeneratedTs failed',
     ok ? 'input_output' : undefined,
   )];
+}
+
+async function getModule(path: string): Promise<any>{
+  try {
+    const info = mls.stor.convertFileReferenceToFile(path);
+    if (!info) throw new Error('get info');
+    const m = await collabImport(info as any);
+    if(!m)throw new Error('get mudule');
+    return m;
+  } catch (e) {
+    return await loadModuleByBuild(path);
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
