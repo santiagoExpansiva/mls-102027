@@ -89,9 +89,10 @@ export async function buildGenContext(defPath: string): Promise<GenContext> {
   const defContextSections: string[] = [];
   for (const sp of pipelineItem.skills ?? []) {
     const clean = sp.startsWith('/') ? sp.slice(1) : sp;
-    if (/^_\d+_$/.test(clean)) {
-      const content = await loadProjectDefinition(clean);
-      if (content) defContextSections.push(`### Project Definition (${clean})
+    if (/^_\d+_\.d\.ts$/.test(clean)) {
+      const projectRef = clean.replace(/\.d\.ts$/, ''); // "_102034_"
+      const content = await loadProjectDefinition(projectRef);
+      if (content) defContextSections.push(`### Project Definition (${projectRef})
 \`\`\`typescript
 ${content}
 \`\`\``);
