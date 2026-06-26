@@ -104,7 +104,7 @@ ${content}`);
   }
 
   // Visual style — embedded in pipeline item for pages
-  const visualStyle = pipelineItem.visualStyle;
+  const visualStyle = undefined;//pipelineItem.visualStyle;
 
   // Business rules
   let resolvedRules: Record<string, unknown>[] = [];

@@ -539,6 +539,7 @@ async function compileGeneratedTs(project: number, level: number, folder: string
     if (!modelTs) return;
     if (modelTs && modelTs.compilerResults) modelTs.compilerResults.modelNeedCompile = true;
     await mls.l2.typescript.compileAndPostProcess(modelTs, true, true);
+    mls.editor.forceModelUpdate(modelTs.model);
   } catch (err) {
     console.warn('[artifactsMaterialize] compileGeneratedTs failed', err);
   }
