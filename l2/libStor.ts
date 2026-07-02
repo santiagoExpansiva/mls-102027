@@ -23,7 +23,7 @@ export async function createStorFile(req: IReqCreateStorFile, needCreateModel: b
 
     let source = req.source;
     if (req.level === 2) {
-        source =  verifyNeedAddTripleslach(params, req.source, req.extension)
+        source = verifyNeedAddTripleslach(params, req.source, req.extension)
     }
     const fileInfo: mls.stor.IFileInfoValue = {
         content: source,
@@ -331,7 +331,17 @@ export function replaceTripleslashAndTag(storFile: mls.stor.IFileInfo, newProjec
 
 async function deleteFileSystem(storFile: mls.stor.IFileInfo) {
 
-    mls.editor.deleteModels(storFile.project, storFile.shortName, storFile.folder, true, storFile.level);
+    //mls.editor.deleteModels(storFile.project, storFile.shortName, storFile.folder, true, storFile.level);
+    const keyToModel = mls.editor.getKeyModel(storFile.project, storFile.shortName, storFile.folder, storFile.level);
+    if (mls.editor.models[keyToModel]) {
+
+        const prop = mapExtUndo[storFile.extension];
+        if (prop && mls.editor.models[keyToModel]?.[prop]) {
+            mls.editor.models[keyToModel][prop]?.model.dispose();
+            delete mls.editor.models[keyToModel][prop];
+        }
+    }
+
     const keyFiles = mls.stor.getKeyToFiles(storFile.project, storFile.level, storFile.shortName, storFile.folder, storFile.extension);
     await mls.stor.localStor.setContent(storFile, { contentType: 'string', content: null });
     delete mls.stor.files[keyFiles];
@@ -364,7 +374,7 @@ async function safeClone(storFile: mls.stor.IFileInfo, newProject: number, newSh
 
 async function undoFileRenamed(storFile: mls.stor.IFileInfo) {
 
-    if(!storFile.getValueInfo && (mls.stor.localDB as any).getContentInfoOrNull) storFile.getValueInfo = (mls.stor.localDB as any).getContentInfoOrNull
+    if (!storFile.getValueInfo && (mls.stor.localDB as any).getContentInfoOrNull) storFile.getValueInfo = (mls.stor.localDB as any).getContentInfoOrNull
 
     const info = storFile.getValueInfo ? await storFile.getValueInfo() : {} as mls.stor.IFileInfoValue;
 
