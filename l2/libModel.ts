@@ -345,11 +345,11 @@ function onMonacoModelCreated(ev: mls.events.IEvent) {
     const storFile = mls.stor.files[key];
     if (!storFile) return; // ignore, error
 
-    storFile.getOrCreateModel().then((model: mls.editor.IModelBase) => {
+    storFile.getOrCreateModel().then(async (model: mls.editor.IModelBase) => {
         if (!model) return;
         // Register model events and hooks
 
-        if (model.originalCRC === undefined) setOriginalCrc(model);
+        if (model.originalCRC === undefined) await setOriginalCrc(model);
         storFile.onAction = (action: mls.stor.IFileInfoAction) => _afterUpdate(storFile, model.model, mapExt[storFile.extension]);
         storFile.getValueInfo = () => _getValueInfo(model);
         model.model.onDidChangeContent((e: monaco.editor.IModelContentChangedEvent) => _onModelChange(e, model, storFile));
@@ -373,7 +373,7 @@ async function _createModelAnyFile(storFile: mls.stor.IFileInfo) {
         processing: new ModelProcessing()
     }
 
-    setModelEventAny(m, storFile)
+    await setModelEventAny(m, storFile)
 
     storFile.getOrCreateModel = async () => { return m }
     (storFile as any).isCreateModelAny = true;
@@ -381,12 +381,12 @@ async function _createModelAnyFile(storFile: mls.stor.IFileInfo) {
 
 }
 
-export function setModelEventAny(model: mls.editor.IModelBase, storFile: mls.stor.IFileInfo) {
+export async function setModelEventAny(model: mls.editor.IModelBase, storFile: mls.stor.IFileInfo) {
 
     if (!model) return;
     // Register model events and hooks
 
-    if (model.originalCRC === undefined) setOriginalCrc(model);
+    if (model.originalCRC === undefined) await setOriginalCrc(model);
     storFile.onAction = (action: mls.stor.IFileInfoAction) => _afterUpdate(storFile, model.model, mapExt[storFile.extension]);
     storFile.getValueInfo = () => _getValueInfo(model);
     model.model.onDidChangeContent((e: monaco.editor.IModelContentChangedEvent) => _onModelChange(e, model, storFile));
@@ -755,12 +755,14 @@ async function _checkSameContent(modelBase: mls.editor.IModelBase, storFile: mls
     }
 }
 
-function setOriginalCrc(model: mls.editor.IModelBase) {
+async function setOriginalCrc(model: mls.editor.IModelBase) {
 
-    let originalCRC = mls.common.crc.crc32(model.model.getValue()).toString(16);
+    const info = model.storFile.getValueInfo ? await model.storFile.getValueInfo() : null;
+            
+    let originalCRC =  info && info.originalCRC ? info.originalCRC : mls.common.crc.crc32(model.model.getValue()).toString(16);
 
     if (model.storFile.extension === '.less') {
-        originalCRC = mls.common.crc.crc32(removeTokensFromSource(model.model.getValue()).trim()).toString(16)
+        originalCRC = info && info.originalCRC ? info.originalCRC : mls.common.crc.crc32(removeTokensFromSource(model.model.getValue()).trim()).toString(16)
     }
 
     if (model.storFile.extension !== '.d.ts') {
