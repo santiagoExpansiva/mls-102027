@@ -37,7 +37,9 @@ export async function readProjectTypescriptAndCompile(project: number, shortName
             && storFile.extension === '.ts'
             && (mls.istrace || storFile.inLocalStorage)
             && storFile.shortName !== shortName) {
-            promises.push(createAllModels(storFile, false, false));
+            // createStorIfNeed=false: loading a project must never materialize
+            // missing .less/.html/.test.ts/.defs.ts stor files.
+            promises.push(createAllModels(storFile, false, false, false));
         }
     }
 
