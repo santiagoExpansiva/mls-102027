@@ -1,7 +1,7 @@
 /// <mls fileReference="_102027_/l2/pluginBase.ts" enhancement="_102027_/l2/enhancementLit"/>
 
 import { html, LitElement, TemplateResult } from 'lit';
-import { CollabLitElement } from '/_102027_/l2/collabLitElement.js';
+import { CollabLitElement } from '/_102029_/l2/collabLitElement.js';
 import { customElement, property, state } from 'lit/decorators.js';
 
 

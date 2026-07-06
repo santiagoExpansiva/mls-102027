@@ -2,7 +2,7 @@
 
 import { nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { StateLitElement } from '/_102027_/l2/stateLitElement.js';
+import { StateLitElement } from '/_102029_/l2/stateLitElement.js';
 
 @customElement('collab-monaco-editor-102027')
 export class CollabMonacoEditor extends StateLitElement {
