@@ -13,7 +13,8 @@ export async function createStorFile(req: IReqCreateStorFile, needCreateModel: b
         shortName: req.shortName,
         extension: req.extension,
         versionRef: '0',
-        folder: req.folder
+        folder: req.folder,
+        updatedAt: new Date().toISOString()
     };
 
     const file = await mls.stor.addOrUpdateFile(params);
