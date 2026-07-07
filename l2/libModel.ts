@@ -39,7 +39,8 @@ export async function readProjectTypescriptAndCompile(project: number, shortName
             && storFile.shortName !== shortName) {
             // createStorIfNeed=false: loading a project must never materialize
             // missing .less/.html/.test.ts/.defs.ts stor files.
-            promises.push(createAllModels(storFile, false, false, false));
+            //promises.push(createAllModels(storFile, false, false, false));
+            promises.push(createModel(storFile, false, false));
         }
     }
 
@@ -664,7 +665,7 @@ async function _updateModelStatusAny(modelBase: mls.editor.IModelStyle, changed:
     await _checkSameContent(modelBase, modelBase.storFile);
 }
 
-async function _updateModelStatusTS(modelBase: mls.editor.IModelBase, changed: boolean): Promise<void> {
+async function _updateModelStatusTS(modelBase: mls.editor.IModelTS, changed: boolean): Promise<void> {
 
     if (!modelBase.storFile) throw new Error('Invalid stor file');
     const { project, shortName, folder, level } = modelBase.storFile;
@@ -676,7 +677,8 @@ async function _updateModelStatusTS(modelBase: mls.editor.IModelBase, changed: b
 
     const ok = await mls.l2.typescript.compileAndPostProcess(modelBase, true, level === 2);
 
-    let hasError = ok === false;
+    let hasError = ok === false && (modelBase.compilerResults && modelBase.compilerResults.errors.length > 0);
+    
     if (!hasError) {
 
         const enhacementName = await getEnhancementName({ project, shortName, folder, level: 2 }).catch((e: any) => undefined);
@@ -685,7 +687,7 @@ async function _updateModelStatusTS(modelBase: mls.editor.IModelBase, changed: b
             if (!path) throw new Error('[_updateModelStatusTS] Not found path:' + enhacementName)
             const enhancementInstance: mls.l2.enhancement.IEnhancementInstance | undefined = await mls.l2.enhancement.getEnhancementModule(path).catch((e) => { console.error('Error on getEnhancementModule: ' + e.message); return undefined });
             if (enhancementInstance) await enhancementInstance.onAfterChange(modelBase);
-            console.info('enhancementInstance run ok');
+            //console.info(' enhancementInstance run ok');
 
         }
 
