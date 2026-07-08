@@ -17,6 +17,7 @@
         "lit": "^3.3.2",
         "mls-ci": "git+https://github.com/expansiva/mls-ci.git",
         "mls-102036": "git+https://github.com/expansiva/mls-102036.git",
+        "mls-102029": "git+https://github.com/expansiva/mls-102029.git",
         "node-fetch": "^2.7.0",
         "typescript": "^5.5.3"
     },
