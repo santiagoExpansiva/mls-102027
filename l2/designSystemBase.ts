@@ -1,6 +1,7 @@
 /// <mls fileReference="_102027_/l2/designSystemBase.ts" enhancement="_blank" />
 
 import { collabImport } from '/_102027_/l2/collabImport.js';
+import { getFontLoadsCss, DsFont } from '/_102029_/l2/designSystemBase.js';
 
 export async function getTokens(project: number): Promise<IDesignSystemTokens[]> {
     const fileName = `./_${project}_designSystem`;
@@ -74,7 +75,8 @@ export async function getTokensCss(project: number, theme: string): Promise<stri
         const cssVars = getCssVars(themedTokens, prefix);
         const tokensCss = convertLessTokensToCss(cssVars, themedTokens.root);
 
-        return tokensCss;
+        const fontLoads = getFontLoadsCss(tokenInfo.fonts);
+        return fontLoads ? `${fontLoads}\n${tokensCss}` : tokensCss;
 
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
@@ -257,7 +259,7 @@ function getCssVars(themes: IDarkLight, prefix: ':host' | ':root') {
                 const cssVar = `--${tokenKey}: ${valueToken};`;
                 cssVars.push(cssVar);
             });
-            const cssFinal = `[data-theme="dark"] {\n\t${cssVars.join('\n\t')}\n}`;
+            const cssFinal = `[data-theme="dark"], :root.dark {\n\t${cssVars.join('\n\t')}\n}`;
             cssArr.push(cssFinal);
         }
     });
@@ -334,6 +336,8 @@ export interface IDesignSystemTokens {
     color: Record<string, string>,
     global: Record<string, string>,
     typography: Record<string, string>,
+    /** Font roles that need LOADING (@import/@font-face) — see DsFont in _102029_/l2/designSystemBase. */
+    fonts?: DsFont[],
 }
 
 export interface IDesignSystem {

@@ -379,6 +379,5 @@ export interface IJSONDependence {
     importsLinks: { ref: string, rel: string }[],
     tokens: string | undefined,
     globalCss: string,
-    dsGlobalCss?: string,
     errors: { tag: string, error: string }[]
 }
