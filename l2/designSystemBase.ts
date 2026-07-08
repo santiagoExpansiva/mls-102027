@@ -236,11 +236,27 @@ async function serializeTokens(project: number, tokens: IDesignSystemTokens[]) {
     const libModel = await import('/_102027_/l2/libModel.js');
     const models = await libModel.createAllModels(storFile);
     if (!models || !models.ts) throw new Error(`Invalid models for file: ${project}_designSystem`);
-    const newCode = replaceTokensBlock(models.ts.model.getValue(), `\n${content}\n`);
+    const newCode = dedupeHeader(replaceTokensBlock(models.ts.model.getValue(), `\n${content}\n`));
     serviceSource.setValueInModeKeepingUndo(models.ts.model, newCode, true);
 }
 
+/** Self-heal: keep only the FIRST `/// <mls …>` file-reference line, drop any duplicates. */
+function dedupeHeader(code: string): string {
+    let seen = false;
+    return code.split('\n').filter(line => {
+        if (/^\s*\/\/\/\s*<mls\s/.test(line)) {
+            if (seen) return false;
+            seen = true;
+        }
+        return true;
+    }).join('\n');
+}
+
 export function replaceTokensBlock(code: string, newContent: string): string {
-    const regex = /export\s+const\s+tokens\s*:\s*IDesignSystemTokens\[\]\s*=\s*\[[\s\S]*?\];?/g;
-    return code.replace(regex, `export const tokens: IDesignSystemTokens[] = [\n${newContent}\n]`);
+    // Greedy to the LAST `]` (the tokens array is the file's final statement). A lazy `[\s\S]*?`
+    // stops at the FIRST `]`, which now appears INSIDE the entries (tokenReconciliation.usedGroups,
+    // fonts[].weights/faces, …) and would truncate the block, corrupting the file. A function
+    // replacement also prevents `$`-sequences in newContent from being interpreted by String.replace.
+    const regex = /export\s+const\s+tokens\s*:\s*IDesignSystemTokens\[\]\s*=\s*\[[\s\S]*\]\s*;?/;
+    return code.replace(regex, () => `export const tokens: IDesignSystemTokens[] = [\n${newContent}\n];`);
 }
