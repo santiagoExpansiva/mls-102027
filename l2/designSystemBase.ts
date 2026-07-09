@@ -253,7 +253,6 @@ function dedupeHeader(code: string): string {
 }
 
 export function replaceTokensBlock(code: string, newContent: string): string {
-    console.log('replaceTokensBlock', newContent.length, 'chars');
     // Greedy to the LAST `]` (the tokens array is the file's final statement). A lazy `[\s\S]*?`
     // stops at the FIRST `]`, which now appears INSIDE the entries (tokenReconciliation.usedGroups,
     // fonts[].weights/faces, …) and would truncate the block, corrupting the file. A function
