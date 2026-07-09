@@ -1,4 +1,5 @@
 /// <mls fileReference="_102027_/l2/aiAgentHelper.ts" enhancement="_blank"/>
+import { msgAppendLongTermMemory } from '/_102036_/l2/shared/api.js';
 
 /**
  * Helper function to collect all steps from a task in a flat array
@@ -282,7 +283,7 @@ export async function appendLongTermMemory(context: mls.msg.ExecutionContext, lo
   if (!messageId) throw new Error("[appendLongTermMemory] Invalid messageId");
 
   try {
-    const ret = await mls.api.msgAppendLongTermMemory({
+    const ret = await msgAppendLongTermMemory({
       longTermMemory,
       messageId,
       taskId: context.task.PK,

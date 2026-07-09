@@ -1,4 +1,5 @@
 /// <mls fileReference="_102027_/l2/aiAgentOrchestration.ts" enhancement="_blank"/>
+import { msgApplyIntents } from '/_102036_/l2/shared/api.js';
 
 import {
     getNextPendentStep,
@@ -136,7 +137,7 @@ async function* _processIntentsStream(
     const oldContextCreateAt = context.message.createAt;
     const isAddMessageAI = intents.some(i => i.type === 'add-message-ai');
 
-    const value = await mls.api.msgApplyIntents({
+    const value = await msgApplyIntents({
         userId: context.message.senderId,
         intents
     });
