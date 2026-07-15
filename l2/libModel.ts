@@ -378,7 +378,11 @@ async function _createModelAnyFile(storFile: mls.stor.IFileInfo) {
 
     await setModelEventAny(m, storFile)
 
-    storFile.getOrCreateModel = async () => { return m }
+    storFile.getOrCreateModel = async () => {
+        const src = await storFile.getContent() as string;
+        m.model.setValue(src);
+        return m
+    }
     (storFile as any).isCreateModelAny = true;
     return m;
 
