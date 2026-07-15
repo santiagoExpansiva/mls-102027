@@ -59,7 +59,6 @@ async function getTagsInTypescript(modelTS: mls.editor.IModelTS, tags: string[])
 
 async function getDependencies(models: mls.editor.IModels, filename: string, html: string, theme: string, withCss: boolean = false) {
 
-    debugger;
 
     if (!models.ts) throw new Error('getDependencies: Invalid model ts');
     const { project, shortName, folder } = models.ts.storFile;

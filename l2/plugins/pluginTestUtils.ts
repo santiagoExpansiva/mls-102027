@@ -41,7 +41,14 @@ export function isBrowser(): boolean {
 }
 
 const mountedElements: HTMLElement[] = [];
-const mlsBackup: { key: string; value: any; existed: boolean }[] = [];
+
+interface IMlsBackupEntry {
+    target: any;
+    key: string;
+    descriptor: PropertyDescriptor | undefined;
+}
+
+const mlsBackup: IMlsBackupEntry[] = [];
 
 /**
  * Creates the element, applies properties, appends it to the document and waits for the first render.
@@ -66,22 +73,55 @@ export function query(el: Element, selector: string): Element | null {
  * Replaces `mls.*` keys with mocked values; returns a function that restores the original state.
  * `cleanup()` also restores any pending override, so using only overrideMls is already safe
  * even if the test throws before manually calling the restorer.
+ *
+ * Several `mls.*` namespaces (e.g. `mls.stor`, and even leaves inside it like `mls.stor.getKeyToFiles`)
+ * are exposed as getter-only accessors with no setter — a plain `mls.stor.getKeyToFiles = fn` throws
+ * `Cannot set property getKeyToFiles of [object Object] which has only a getter`. To work regardless of
+ * depth, every write goes through `Object.defineProperty` (which replaces the property descriptor
+ * outright, bypassing the missing setter) instead of plain assignment.
+ *
+ * When both the current value and the override are plain objects, only the override's own keys are
+ * replaced on the *existing* object — one level deep — instead of swapping the whole reference. E.g.
+ * `overrideMls({ stor: { getKeyToFiles: fn } })` replaces just `mls.stor.getKeyToFiles`, leaving every
+ * other property of the real `mls.stor` (and its many loaded files) untouched.
  */
 export function overrideMls(overrides: Record<string, any>): () => void {
-    const keys = Object.keys(overrides);
-    for (const key of keys) {
-        const existed = key in (mls as any);
-        mlsBackup.push({ key, value: (mls as any)[key], existed });
-        (mls as any)[key] = overrides[key];
+    for (const key of Object.keys(overrides)) {
+        applyMlsOverride(mls as any, key, overrides[key]);
     }
     return restoreMls;
 }
 
+function applyMlsOverride(target: any, key: string, value: any): void {
+    const current = target[key];
+    if (isMergeableContainer(current) && isPlainOverride(value)) {
+        for (const subKey of Object.keys(value)) {
+            defineWithBackup(current, subKey, value[subKey]);
+        }
+        return;
+    }
+    defineWithBackup(target, key, value);
+}
+
+/** Objects and arrays can both be merged INTO (by key/index) — only the override side must be a plain object to trigger merging. */
+function isMergeableContainer(value: any): boolean {
+    return !!value && typeof value === 'object';
+}
+
+function isPlainOverride(value: any): boolean {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function defineWithBackup(target: any, key: string, value: any): void {
+    mlsBackup.push({ target, key, descriptor: Object.getOwnPropertyDescriptor(target, key) });
+    Object.defineProperty(target, key, { value, writable: true, configurable: true, enumerable: true });
+}
+
 function restoreMls(): void {
     while (mlsBackup.length) {
-        const { key, value, existed } = mlsBackup.pop()!;
-        if (existed) (mls as any)[key] = value;
-        else delete (mls as any)[key];
+        const { target, key, descriptor } = mlsBackup.pop()!;
+        if (descriptor) Object.defineProperty(target, key, descriptor);
+        else delete target[key];
     }
 }
 
