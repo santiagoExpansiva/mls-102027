@@ -125,7 +125,7 @@ export const template_package = {
 }
 
 
-export const template_build = {
+export const template_build_old = {
     ext: '.yml',
     template: `
 name: Build TypeScript
@@ -207,10 +207,77 @@ jobs:
     `
 }
 
+export const template_build = {
+    ext: '.yml',
+    template: `
+name: Build no mls-base
+
+on:
+  push:
+    branches: [main]
+    paths: ['l1/**', 'l2/**', 'l3/**', 'l4/**', 'l5/**', 'l6/**', 'l7/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PROJECT: \${{ github.event.repository.name }}
+
+    steps:
+      - name: Checkout mls-base
+        uses: actions/checkout@v4
+        with:
+          repository: expansiva/mls-base
+          path: mls-base
+
+      - name: Checkout projeto atual dentro do mls-base
+        uses: actions/checkout@v4
+        with:
+          path: mls-base/\${{ github.event.repository.name }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install mls-base
+        working-directory: mls-base
+        run: pnpm install
+
+      - name: Build
+        working-directory: mls-base
+        run: pnpm run buildCI "$PROJECT"
+        env:
+          GH_PAT: \${{ secrets.GH_PAT }}
+          COLLAB_TOKEN: \${{ vars.COLLAB_TOKEN }}
+          COLLAB_DRIVER: GitHub
+
+      - name: Commit compiled files
+        working-directory: mls-base
+        run: |
+          ID="\${PROJECT#mls-}"
+          mkdir -p "\$PROJECT/obj"
+          cp ".generated/\$ID/obj/compiled.zip" ".generated/$ID/obj/source.zip" "\$PROJECT/obj/"
+          git -C "\$PROJECT" config user.name 'github-actions[bot]'
+          git -C "\$PROJECT" config user.email 'github-actions[bot]@users.noreply.github.com'
+          git -C "\$PROJECT" add -f obj
+          git -C "\$PROJECT" diff --cached --quiet || git -C "\$PROJECT" commit -m "Compile TypeScript files (mls-base buildCI)"
+          git -C "\$PROJECT" push
+    `
+}
+
 export const template_l2Project = {
     ext: '.ts',
     template: `
-/// <mls fileReference="_[project]_/l2/project.ts" enhancement="_100554_enhancementLit" />
+/// <mls fileReference="_[project]_/l2/project.ts" enhancement="_blank" />
 
 export const projectConfig = {
     masterFrontEnd: {
@@ -224,6 +291,19 @@ export const projectConfig = {
         serverView: ''
     },
     modules: []
+}
+`
+}
+
+export const template_deps = {
+    ext: '.json',
+    template: `
+{
+  "workspaceDependencies": {
+    "102027": {
+      "repo": "https://github.com/expansiva/mls-102027.git"
+    }
+  }
 }
 `
 }
